@@ -7,6 +7,7 @@ type LoginPageProps = { onLogin: () => void };
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [recoverySent, setRecoverySent] = useState(false);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -48,7 +49,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             </div>
             <div className="password-label">
               <label htmlFor="password">Password</label>
-              <button type="button">Forgot password?</button>
+              <button type="button" onClick={() => setRecoverySent(true)}>Forgot password?</button>
             </div>
             <div className="input-wrap">
               <LockKeyhole size={19} />
@@ -57,6 +58,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </div>
+            {recoverySent && <p className="recovery-message" role="status">Please contact HR support to reset your account password.</p>}
             <label className="remember"><input type="checkbox" defaultChecked /> <span>Keep me signed in</span></label>
             <button className="login-button" type="submit" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign in'} {!loading && <ArrowRight size={19} />}
