@@ -2,6 +2,16 @@
 
 Production-ready starter structure for an HR Increment Management System using React + Vite, ASP.NET Core Web API (.NET 10), Microsoft SQL Server, and Entity Framework Core.
 
+## Frontend Quick Start
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend opens on the login screen. Submit the prefilled demo credentials to view the responsive HR dashboard, and use the profile control at the bottom of the sidebar to sign out.
+
 ## Project Purpose
 
 - Integrate with an existing HCM system.
