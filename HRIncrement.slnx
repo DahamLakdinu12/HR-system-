@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/HRIncrement.Api/HRIncrement.Api.csproj" />
+    <Project Path="backend/src/HRIncrement.Application/HRIncrement.Application.csproj" />
+    <Project Path="backend/src/HRIncrement.Domain/HRIncrement.Domain.csproj" />
+    <Project Path="backend/src/HRIncrement.Infrastructure/HRIncrement.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/HRIncrement.UnitTests/HRIncrement.UnitTests.csproj" />
+    <Project Path="backend/tests/HRIncrement.IntegrationTests/HRIncrement.IntegrationTests.csproj" />
+    <Project Path="backend/tests/HRIncrement.ArchitectureTests/HRIncrement.ArchitectureTests.csproj" />
+  </Folder>
+</Solution>

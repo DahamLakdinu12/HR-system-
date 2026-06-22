@@ -12,6 +12,30 @@ npm run dev
 
 The frontend opens on the login screen. Submit the prefilled demo credentials to view the responsive HR dashboard, and use the profile control at the bottom of the sidebar to sign out.
 
+## Backend Quick Start
+
+The backend requires the .NET 10 SDK and SQL Server. Replace development placeholders with
+environment variables described in `docs/deployment/configuration.md`, then run:
+
+```bash
+dotnet tool restore
+dotnet restore HRIncrement.slnx
+dotnet run --project backend/src/HRIncrement.Api
+```
+
+Generate or review the database script without applying it automatically:
+
+```bash
+dotnet tool run dotnet-ef migrations script \
+  --project backend/src/HRIncrement.Infrastructure \
+  --startup-project backend/src/HRIncrement.Api \
+  --context ApplicationDbContext \
+  --idempotent
+```
+
+The API validates tokens issued by the configured corporate identity provider. The frontend's
+prefilled login remains a development-only UI flow until that provider is connected.
+
 ## Project Purpose
 
 - Integrate with an existing HCM system.

@@ -1,0 +1,17 @@
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Local configuration and tooling
+.DS_Store
+*.log
+TestResults/
+.idea/
+.vscode/
