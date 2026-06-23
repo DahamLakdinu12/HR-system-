@@ -9,7 +9,7 @@ import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Overview', path: '/' },
+  { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
   { icon: Users, label: 'Employees', path: '/employees' },
   { icon: TrendingUp, label: 'Increments', path: '/increments', badge: '12' },
   { icon: WalletCards, label: 'Salary scales', path: '/salary-scales' },
@@ -40,7 +40,7 @@ export function DashboardLayout() {
 
   const signOut = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const submitSearch = (event: FormEvent) => {
@@ -55,7 +55,7 @@ export function DashboardLayout() {
         <nav>
           <p className="nav-label">Workspace</p>
           {navItems.map(({ icon: Icon, label, path, badge }) => (
-            <NavLink className={({ isActive }) => `nav-item ${isActive ? 'nav-item--active' : ''}`} to={path} end={path === '/'} key={label} onClick={() => setMenuOpen(false)}>
+            <NavLink className={({ isActive }) => `nav-item ${isActive ? 'nav-item--active' : ''}`} to={path} key={label} onClick={() => setMenuOpen(false)}>
               <Icon size={19} /><span>{label}</span>{badge && <b>{badge}</b>}
             </NavLink>
           ))}
