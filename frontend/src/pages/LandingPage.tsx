@@ -1,6 +1,7 @@
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Logo } from '../components/common/Logo';
+import boiLogo from '../assets/images/boi-logo.png';
+import landingBackground from '../assets/images/landing-background.jpg';
 import { useAuth } from '../context/AuthContext';
 
 export function LandingPage() {
@@ -10,15 +11,14 @@ export function LandingPage() {
     <main className="landing-page">
       <img
         className="landing-background-image"
-        src="/images/landing-background.jpg"
+        src={landingBackground}
         alt=""
         aria-hidden="true"
-        onError={(event) => { event.currentTarget.hidden = true; }}
       />
       <div className="landing-page__overlay" />
       <div className="landing-page__glow" />
       <header className="landing-header">
-        <Logo inverse />
+        <img className="landing-logo-image" src={boiLogo} alt="BOI Sri Lanka" />
         <span>Human Resource Department</span>
       </header>
 
