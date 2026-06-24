@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import loginBackground from '../assets/images/loging-background.jpg';
 import loginLogo from '../assets/images/boi-logo.png';
 import { Logo } from '../components/common/Logo';
@@ -22,7 +23,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       <section className="login-brand">
         <img className="login-brand__background" src={loginBackground} alt="" aria-hidden="true" />
         <div className="login-brand__shade" />
-        <img className="login-brand__logo" src={loginLogo} alt="BOI Sri Lanka" />
+        <Link className="login-brand__logo-link" to="/" aria-label="Go to landing page">
+          <img className="login-brand__logo" src={loginLogo} alt="BOI Sri Lanka" />
+        </Link>
         <div className="login-brand__content">
           <span className="eyebrow eyebrow--light">HR, thoughtfully managed</span>
           <h1>Grow your people.<br />Elevate your impact.</h1>
