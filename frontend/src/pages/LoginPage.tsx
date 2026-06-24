@@ -1,5 +1,7 @@
 import { FormEvent, useState } from 'react';
-import { ArrowRight, Check, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
+import loginBackground from '../assets/images/loging-background.jpg';
+import loginLogo from '../assets/images/boi-logo.png';
 import { Logo } from '../components/common/Logo';
 
 type LoginPageProps = { onLogin: () => void };
@@ -18,18 +20,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <main className="login-page">
       <section className="login-brand">
-        <div className="login-brand__orb login-brand__orb--one" />
-        <div className="login-brand__orb login-brand__orb--two" />
-        <Logo inverse />
+        <img className="login-brand__background" src={loginBackground} alt="" aria-hidden="true" />
+        <div className="login-brand__shade" />
+        <img className="login-brand__logo" src={loginLogo} alt="BOI Sri Lanka" />
         <div className="login-brand__content">
           <span className="eyebrow eyebrow--light">HR, thoughtfully managed</span>
           <h1>Grow your people.<br />Elevate your impact.</h1>
           <p>A focused workspace for fair, transparent and effortless employee increment management.</p>
-          <div className="brand-points">
-            <div><Check size={16} /> Government gazette compliant</div>
-            <div><Check size={16} /> Secure, auditable workflows</div>
-            <div><Check size={16} /> Connected to your HCM</div>
-          </div>
         </div>
         <p className="login-brand__footer">Built for better people decisions.</p>
       </section>
@@ -65,7 +62,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             </button>
           </form>
 
-          <div className="security-note"><ShieldCheck size={17} /> Protected with enterprise-grade security</div>
           <p className="support-note">Need help? <a href="mailto:support@elevatehr.lk">Contact HR support</a></p>
         </div>
       </section>
