@@ -5,6 +5,26 @@ import { searchEmployees } from '../services/api/employees';
 import { Employee, EmployeeSearchResult } from '../types/employee';
 
 const pageSize = 25;
+type SortField = 'employee' | 'payCode' | 'designation' | 'grade' | 'location' | 'incrementDate' | 'currentSalary';
+type SortDirection = 'asc' | 'desc';
+
+const sortFields: SortField[] = ['employee', 'payCode', 'designation', 'grade', 'location', 'incrementDate', 'currentSalary'];
+
+const columnLabels: Record<SortField, string> = {
+  employee: 'Employee',
+  payCode: 'Pay code',
+  designation: 'Designation',
+  grade: 'Grade',
+  location: 'Location',
+  incrementDate: 'Increment date',
+  currentSalary: 'Current salary',
+};
+
+function cleanText(value: string | null | undefined) {
+  const text = (value ?? '').trim();
+  if (!text || ['n/a', 'na', 'null', '-'].includes(text.toLowerCase())) return '';
+  return text;
+}
 
 function parseEmployeeExport(text: string): Employee[] {
   return text
@@ -27,16 +47,16 @@ function parseEmployeeExport(text: string): Employee[] {
       ] = line.split('|');
 
       return {
-        employeeNumber,
-        payCode,
-        fullName,
-        designation,
-        grade,
-        department,
-        location,
-        appointmentDate,
+        employeeNumber: cleanText(employeeNumber),
+        payCode: cleanText(payCode),
+        fullName: cleanText(fullName),
+        designation: cleanText(designation),
+        grade: cleanText(grade),
+        department: cleanText(department),
+        location: cleanText(location),
+        appointmentDate: cleanText(appointmentDate),
         promotionDate: promotionDate || null,
-        incrementDate,
+        incrementDate: cleanText(incrementDate),
         currentSalary: Number(currentSalary),
       };
     });
@@ -48,21 +68,76 @@ async function loadExportedEmployees() {
   return parseEmployeeExport(await response.text());
 }
 
-function getExportedEmployeeResult(employees: Employee[], payCode: string, page: number): EmployeeSearchResult {
+function getEmployeeName(employee: Employee) {
+  return cleanText(employee.fullName) || cleanText(employee.employeeNumber) || cleanText(employee.payCode) || 'Employee';
+}
+
+function getSortValue(employee: Employee, sortField: SortField) {
+  switch (sortField) {
+    case 'employee':
+      return getEmployeeName(employee);
+    case 'payCode':
+      return cleanText(employee.payCode);
+    case 'designation':
+      return cleanText(employee.designation);
+    case 'grade':
+      return cleanText(employee.grade);
+    case 'location':
+      return cleanText(employee.location);
+    case 'incrementDate':
+      return employee.incrementDate;
+    case 'currentSalary':
+      return employee.currentSalary;
+    default:
+      return getEmployeeName(employee);
+  }
+}
+
+function sortEmployees(employees: Employee[], sortField: SortField, sortDirection: SortDirection) {
+  const multiplier = sortDirection === 'asc' ? 1 : -1;
+  return [...employees].sort((left, right) => {
+    if (sortField === 'employee') {
+      const leftName = cleanText(left.fullName);
+      const rightName = cleanText(right.fullName);
+
+      if (!leftName && rightName) return 1;
+      if (leftName && !rightName) return -1;
+    }
+
+    const leftValue = getSortValue(left, sortField);
+    const rightValue = getSortValue(right, sortField);
+
+    if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+      return (leftValue - rightValue) * multiplier;
+    }
+
+    return String(leftValue).localeCompare(String(rightValue), 'en', { numeric: true, sensitivity: 'base' }) * multiplier;
+  });
+}
+
+function getExportedEmployeeResult(
+  employees: Employee[],
+  payCode: string,
+  page: number,
+  sortField: SortField,
+  sortDirection: SortDirection,
+): EmployeeSearchResult {
   const normalizedPayCode = payCode.trim().toLowerCase();
   const items = normalizedPayCode
     ? employees.filter((employee) => employee.payCode.toLowerCase().includes(normalizedPayCode))
     : employees;
+  const sortedItems = sortEmployees(items, sortField, sortDirection);
 
   return {
-    items: items.slice((page - 1) * pageSize, page * pageSize),
+    items: sortedItems.slice((page - 1) * pageSize, page * pageSize),
     page,
     pageSize,
-    totalCount: items.length,
+    totalCount: sortedItems.length,
   };
 }
 
 function formatDate(value: string) {
+  if (!value) return '-';
   return new Intl.DateTimeFormat('en-LK', {
     day: '2-digit',
     month: 'short',
@@ -80,7 +155,7 @@ function formatMoney(value: number) {
 }
 
 function initials(employee: Employee) {
-  return employee.fullName
+  return getEmployeeName(employee)
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
@@ -94,6 +169,9 @@ export function EmployeesPage() {
   const params = new URLSearchParams(location.search);
   const payCode = params.get('payCode') ?? '';
   const page = Math.max(1, Number(params.get('page') ?? 1));
+  const sortFieldParam = params.get('sort');
+  const sortField = sortFields.includes(sortFieldParam as SortField) ? sortFieldParam as SortField : 'employee';
+  const sortDirection = params.get('direction') === 'desc' ? 'desc' : 'asc';
 
   const [payCodeInput, setPayCodeInput] = useState(payCode);
   const [result, setResult] = useState<EmployeeSearchResult | null>(null);
@@ -112,15 +190,19 @@ export function EmployeesPage() {
     setError(null);
     setUsingExport(false);
 
-    searchEmployees({ payCode: payCode || undefined, page, pageSize })
+    searchEmployees({ payCode: payCode || undefined, sortBy: sortField, sortDirection, page, pageSize })
       .then((data) => {
         if (!ignore) setResult(data);
       })
       .catch(async () => {
-        const employees = await loadExportedEmployees();
-        if (!ignore) {
-          setResult(getExportedEmployeeResult(employees, payCode, page));
-          setUsingExport(true);
+        try {
+          const employees = await loadExportedEmployees();
+          if (!ignore) {
+            setResult(getExportedEmployeeResult(employees, payCode, page, sortField, sortDirection));
+            setUsingExport(true);
+          }
+        } catch {
+          if (!ignore) setError('Unable to load employee data from HCM.');
         }
       })
       .finally(() => {
@@ -130,16 +212,38 @@ export function EmployeesPage() {
     return () => {
       ignore = true;
     };
-  }, [page, payCode]);
+  }, [page, payCode, sortDirection, sortField]);
 
   const totalPages = Math.max(1, Math.ceil((result?.totalCount ?? 0) / pageSize));
+  const visibleEmployees = sortEmployees(result?.items ?? [], sortField, sortDirection);
 
-  const updateRoute = (nextPayCode: string, nextPage = 1) => {
+  const updateRoute = (
+    nextPayCode: string,
+    nextPage = 1,
+    nextSortField = sortField,
+    nextSortDirection = sortDirection,
+  ) => {
     const next = new URLSearchParams();
     if (nextPayCode.trim()) next.set('payCode', nextPayCode.trim());
     if (nextPage > 1) next.set('page', String(nextPage));
+    if (nextSortField !== 'employee') next.set('sort', nextSortField);
+    if (nextSortDirection !== 'asc') next.set('direction', nextSortDirection);
     navigate(`/employees${next.toString() ? `?${next}` : ''}`);
   };
+
+  const updateSort = (nextSortField: SortField) => {
+    const nextSortDirection = sortField === nextSortField && sortDirection === 'asc' ? 'desc' : 'asc';
+    updateRoute(payCode, 1, nextSortField, nextSortDirection);
+  };
+
+  const renderSortableHeader = (field: SortField) => (
+    <th>
+      <button className="sortable-header" onClick={() => updateSort(field)} type="button">
+        {columnLabels[field]}
+        <span aria-hidden="true">{sortField === field ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+      </button>
+    </th>
+  );
 
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -192,22 +296,22 @@ export function EmployeesPage() {
               <table className="employee-table">
                 <thead>
                   <tr>
-                    <th>Employee</th>
-                    <th>Pay code</th>
-                    <th>Designation</th>
-                    <th>Grade</th>
-                    <th>Location</th>
-                    <th>Increment date</th>
-                    <th>Current salary</th>
+                    {renderSortableHeader('employee')}
+                    {renderSortableHeader('payCode')}
+                    {renderSortableHeader('designation')}
+                    {renderSortableHeader('grade')}
+                    {renderSortableHeader('location')}
+                    {renderSortableHeader('incrementDate')}
+                    {renderSortableHeader('currentSalary')}
                   </tr>
                 </thead>
                 <tbody>
-                  {result?.items.map((employee, index) => (
+                  {visibleEmployees.map((employee, index) => (
                     <tr key={employee.employeeNumber}>
                       <td>
                         <span className={`table-avatar avatar-${index % 4}`}>{initials(employee)}</span>
                         <span>
-                          <strong>{employee.fullName}</strong>
+                          <strong>{getEmployeeName(employee)}</strong>
                           <small>{employee.employeeNumber}</small>
                         </span>
                       </td>
@@ -223,7 +327,7 @@ export function EmployeesPage() {
               </table>
             </div>
 
-            {result?.items.length === 0 && (
+            {visibleEmployees.length === 0 && (
               <div className="employee-message">No matching employees were found.</div>
             )}
 

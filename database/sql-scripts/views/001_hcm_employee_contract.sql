@@ -17,9 +17,9 @@ SELECT
     LTRIM(RTRIM(e.Number)) AS EmployeeNumber,
     COALESCE(NULLIF(LTRIM(RTRIM(e.EPFNo)), ''), LTRIM(RTRIM(e.Number))) AS PayCode,
     COALESCE(
-        NULLIF(LTRIM(RTRIM(e.FullName)), ''),
-        NULLIF(LTRIM(RTRIM(CONCAT(e.Forenames, ' ', e.Surname))), ''),
-        NULLIF(LTRIM(RTRIM(m.FullName)), ''),
+        NULLIF(NULLIF(LTRIM(RTRIM(e.FullName)), ''), 'n/a'),
+        NULLIF(NULLIF(LTRIM(RTRIM(CONCAT(e.Forenames, ' ', e.Surname))), ''), 'n/a'),
+        NULLIF(NULLIF(LTRIM(RTRIM(m.FullName)), ''), 'n/a'),
         LTRIM(RTRIM(e.Number))) AS FullName,
     COALESCE(
         NULLIF(LTRIM(RTRIM(des.DesignationName)), ''),

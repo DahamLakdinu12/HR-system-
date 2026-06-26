@@ -7,6 +7,8 @@ public interface IHcmEmployeeReader
     Task<EmployeeSearchResultDto> SearchAsync(
         string? search,
         string? payCode,
+        string? sortBy,
+        string? sortDirection,
         int page,
         int pageSize,
         CancellationToken cancellationToken);

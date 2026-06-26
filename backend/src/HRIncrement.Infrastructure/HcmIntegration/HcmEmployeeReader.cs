@@ -9,6 +9,8 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
     public async Task<EmployeeSearchResultDto> SearchAsync(
         string? search,
         string? payCode,
+        string? sortBy,
+        string? sortDirection,
         int page,
         int pageSize,
         CancellationToken cancellationToken)
@@ -37,8 +39,9 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
+        query = ApplySorting(query, sortBy, sortDirection);
+
         var items = await query
-            .OrderBy(x => x.EmployeeNumber)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
@@ -86,4 +89,38 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
             x.PromotionDate,
             x.IncrementDate,
             x.CurrentSalary));
+
+    private static IQueryable<EmployeeDto> ApplySorting(
+        IQueryable<EmployeeDto> query,
+        string? sortBy,
+        string? sortDirection)
+    {
+        var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        var normalizedSortBy = sortBy?.Trim().ToLowerInvariant();
+
+        return normalizedSortBy switch
+        {
+            "paycode" => descending
+                ? query.OrderByDescending(x => x.PayCode).ThenBy(x => x.EmployeeNumber)
+                : query.OrderBy(x => x.PayCode).ThenBy(x => x.EmployeeNumber),
+            "designation" => descending
+                ? query.OrderByDescending(x => x.Designation).ThenBy(x => x.EmployeeNumber)
+                : query.OrderBy(x => x.Designation).ThenBy(x => x.EmployeeNumber),
+            "grade" => descending
+                ? query.OrderByDescending(x => x.Grade).ThenBy(x => x.EmployeeNumber)
+                : query.OrderBy(x => x.Grade).ThenBy(x => x.EmployeeNumber),
+            "location" => descending
+                ? query.OrderByDescending(x => x.Location).ThenBy(x => x.EmployeeNumber)
+                : query.OrderBy(x => x.Location).ThenBy(x => x.EmployeeNumber),
+            "incrementdate" => descending
+                ? query.OrderByDescending(x => x.IncrementDate).ThenBy(x => x.EmployeeNumber)
+                : query.OrderBy(x => x.IncrementDate).ThenBy(x => x.EmployeeNumber),
+            "currentsalary" => descending
+                ? query.OrderByDescending(x => x.CurrentSalary).ThenBy(x => x.EmployeeNumber)
+                : query.OrderBy(x => x.CurrentSalary).ThenBy(x => x.EmployeeNumber),
+            _ => descending
+                ? query.OrderByDescending(x => x.FullName).ThenBy(x => x.EmployeeNumber)
+                : query.OrderBy(x => x.FullName).ThenBy(x => x.EmployeeNumber),
+        };
+    }
 }
