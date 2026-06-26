@@ -1,4 +1,6 @@
+using HRIncrement.Api.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.IdentityModel.Tokens;
 
 namespace HRIncrement.Api.Extensions;
@@ -7,26 +9,39 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddApiServices(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         services.AddControllers();
         services.AddOpenApi();
         services.AddProblemDetails();
         services.AddHealthChecks();
 
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
-            {
-                configuration.GetSection("Authentication").Bind(options);
-                options.TokenValidationParameters = new TokenValidationParameters
+        var developmentAuthenticationEnabled =
+            environment.IsDevelopment() &&
+            configuration.GetValue<bool>("DevelopmentAuthentication:Enabled");
+
+        if (developmentAuthenticationEnabled)
+        {
+            services.AddAuthentication("Development")
+                .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthenticationHandler>("Development", _ => { });
+        }
+        else
+        {
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
                 {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ClockSkew = TimeSpan.FromMinutes(1)
-                };
-            });
+                    configuration.GetSection("Authentication").Bind(options);
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ClockSkew = TimeSpan.FromMinutes(1)
+                    };
+                });
+        }
 
         services.AddAuthorizationBuilder()
             .AddPolicy("CanProcessIncrements", policy =>

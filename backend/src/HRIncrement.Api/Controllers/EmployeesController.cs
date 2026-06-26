@@ -10,6 +10,16 @@ namespace HRIncrement.Api.Controllers;
 [Authorize(Policy = "CanReadEmployees")]
 public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : ControllerBase
 {
+    [HttpGet]
+    [ProducesResponseType<EmployeeSearchResultDto>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<EmployeeSearchResultDto>> Search(
+        [FromQuery] string? search,
+        [FromQuery] string? payCode,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        CancellationToken cancellationToken = default) =>
+        Ok(await employeeReader.SearchAsync(search, payCode, page, pageSize, cancellationToken));
+
     [HttpGet("{employeeNumber}")]
     [ProducesResponseType<EmployeeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

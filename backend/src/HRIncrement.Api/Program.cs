@@ -16,7 +16,7 @@ builder.Host.UseSerilog((context, configuration) => configuration
 builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration)
-    .AddApiServices(builder.Configuration);
+    .AddApiServices(builder.Configuration, builder.Environment);
 
 var questPdfLicense = builder.Configuration["QuestPdf:License"];
 if (Enum.TryParse<LicenseType>(questPdfLicense, true, out var license))

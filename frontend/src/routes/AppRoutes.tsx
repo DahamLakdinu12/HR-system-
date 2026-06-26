@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { DashboardPage } from '../pages/DashboardPage';
+import { EmployeesPage } from '../pages/EmployeesPage';
 import { LandingPage } from '../pages/LandingPage';
 import { LoginPage } from '../pages/LoginPage';
 import { ModulePage } from '../pages/ModulePage';
@@ -18,7 +19,7 @@ export function AppRoutes() {
       />
       <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" replace />}>
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="employees" element={<ModulePage title="Employees" description="Search and review employee information synchronized from HCM." />} />
+        <Route path="employees" element={<EmployeesPage />} />
         <Route path="increments" element={<ModulePage title="Increment processing" description="Calculate, review and process scheduled salary increments." />} />
         <Route path="salary-scales" element={<ModulePage title="Salary scales" description="Manage gazette salary scales, points and effective dates." />} />
         <Route path="assessments" element={<ModulePage title="Performance assessments" description="Prepare and track annual employee assessment forms." />} />

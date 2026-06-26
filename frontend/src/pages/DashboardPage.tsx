@@ -2,30 +2,78 @@ import {
   ArrowRight, CalendarDays, ChevronDown, CircleCheck, ClipboardCheck,
   Clock3, FileText, SlidersHorizontal, TrendingUp, Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getDueIncrements, searchEmployees } from '../services/api/employees';
+import { Employee } from '../types/employee';
 
-const increments = [
-  { initials: 'NK', name: 'Nadeesha Kumari', id: 'EMP-0142', department: 'Finance', date: '28 Jun 2026', amount: 'LKR 8,450', status: 'Ready' },
-  { initials: 'AT', name: 'Amal Tharanga', id: 'EMP-0284', department: 'Operations', date: '30 Jun 2026', amount: 'LKR 6,200', status: 'Review' },
-  { initials: 'SP', name: 'Shalini Perera', id: 'EMP-0097', department: 'Human Resources', date: '02 Jul 2026', amount: 'LKR 9,100', status: 'Ready' },
-  { initials: 'DM', name: 'Dilan Madushanka', id: 'EMP-0311', department: 'Technology', date: '04 Jul 2026', amount: 'LKR 7,800', status: 'Pending' },
-];
+function toDateInput(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en-LK', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00`));
+}
+
+function initials(employee: Employee) {
+  return employee.fullName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'HR';
+}
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState('This month');
+  const [totalEmployees, setTotalEmployees] = useState<number | null>(null);
+  const [dueThisMonth, setDueThisMonth] = useState<Employee[]>([]);
+  const [upcomingIncrements, setUpcomingIncrements] = useState<Employee[]>([]);
+
+  useEffect(() => {
+    const today = new Date();
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const next14Days = new Date(today);
+    next14Days.setDate(today.getDate() + 14);
+
+    searchEmployees({ page: 1, pageSize: 1 })
+      .then((data) => setTotalEmployees(data.totalCount))
+      .catch(() => setTotalEmployees(null));
+
+    getDueIncrements({
+      from: toDateInput(today),
+      to: toDateInput(monthEnd),
+      page: 1,
+      pageSize: 200,
+    })
+      .then(setDueThisMonth)
+      .catch(() => setDueThisMonth([]));
+
+    getDueIncrements({
+      from: toDateInput(today),
+      to: toDateInput(next14Days),
+      page: 1,
+      pageSize: 4,
+    })
+      .then(setUpcomingIncrements)
+      .catch(() => setUpcomingIncrements([]));
+  }, []);
 
   return (
     <main className="dashboard">
       <section className="welcome-row">
-        <div><span className="eyebrow">Monday, 22 June</span><h1>Good morning, Kavindi.</h1><p>Here’s what’s happening across your HR workspace today.</p></div>
+        <div><span className="eyebrow">{new Intl.DateTimeFormat('en-LK', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}</span><h1>Good morning, Kavindi.</h1><p>Here’s what’s happening across your HR workspace today.</p></div>
         <button className="primary-button" onClick={() => navigate('/increments')}><TrendingUp size={18} /> Process increments</button>
       </section>
 
       <section className="stat-grid">
-        <article className="stat-card"><div className="stat-card__icon mint"><Users /></div><div className="stat-card__meta"><span>Total employees</span><strong>1,248</strong><small className="positive">↑ 2.4% <em>from last month</em></small></div><button onClick={() => navigate('/employees')} aria-label="View employees">•••</button></article>
-        <article className="stat-card"><div className="stat-card__icon amber"><CalendarDays /></div><div className="stat-card__meta"><span>Due this month</span><strong>84</strong><small><b>12</b> need attention</small></div><button onClick={() => navigate('/increments')} aria-label="View due increments">•••</button></article>
+        <article className="stat-card"><div className="stat-card__icon mint"><Users /></div><div className="stat-card__meta"><span>Total employees</span><strong>{totalEmployees?.toLocaleString('en-LK') ?? '...'}</strong><small>from restored HCM</small></div><button onClick={() => navigate('/employees')} aria-label="View employees">•••</button></article>
+        <article className="stat-card"><div className="stat-card__icon amber"><CalendarDays /></div><div className="stat-card__meta"><span>Due this month</span><strong>{dueThisMonth.length}</strong><small><b>{upcomingIncrements.length}</b> in next 14 days</small></div><button onClick={() => navigate('/employees')} aria-label="View due increments">•••</button></article>
         <article className="stat-card"><div className="stat-card__icon violet"><ClipboardCheck /></div><div className="stat-card__meta"><span>Awaiting approval</span><strong>27</strong><small><b>5</b> overdue</small></div><button onClick={() => navigate('/approvals')} aria-label="View approvals">•••</button></article>
         <article className="stat-card"><div className="stat-card__icon blue"><CircleCheck /></div><div className="stat-card__meta"><span>Completed</span><strong>156</strong><small className="positive">↑ 18 <em>this month</em></small></div><button onClick={() => navigate('/reports')} aria-label="View reports">•••</button></article>
       </section>
@@ -34,7 +82,8 @@ export function DashboardPage() {
         <article className="panel increments-panel">
           <div className="panel__header"><div><h2>Upcoming increments</h2><p>Employees scheduled in the next 14 days</p></div><button className="text-button" onClick={() => navigate('/increments')}>View all <ArrowRight size={16} /></button></div>
           <div className="table-wrap"><table><thead><tr><th>Employee</th><th>Department</th><th>Due date</th><th>Increment</th><th>Status</th><th /></tr></thead><tbody>
-            {increments.map((row, index) => <tr key={row.id}><td><span className={`table-avatar avatar-${index}`}>{row.initials}</span><span><strong>{row.name}</strong><small>{row.id}</small></span></td><td>{row.department}</td><td>{row.date}</td><td><strong>{row.amount}</strong></td><td><span className={`status status--${row.status.toLowerCase()}`}>{row.status}</span></td><td><button className="more-button" onClick={() => navigate(`/employees?search=${row.id}`)} aria-label={`Open ${row.name}`}>•••</button></td></tr>)}
+            {upcomingIncrements.map((row, index) => <tr key={row.employeeNumber}><td><span className={`table-avatar avatar-${index}`}>{initials(row)}</span><span><strong>{row.fullName}</strong><small>{row.employeeNumber}</small></span></td><td>{row.department || row.location || '-'}</td><td>{formatDate(row.incrementDate)}</td><td><strong>Pending gazette</strong></td><td><span className="status status--ready">HCM</span></td><td><button className="more-button" onClick={() => navigate(`/employees?search=${row.employeeNumber}`)} aria-label={`Open ${row.fullName}`}>•••</button></td></tr>)}
+            {upcomingIncrements.length === 0 && <tr><td colSpan={6}>No increments due in the next 14 days.</td></tr>}
           </tbody></table></div>
         </article>
 
@@ -51,7 +100,7 @@ export function DashboardPage() {
       </section>
 
       <section className="panel progress-panel">
-        <div className="panel__header"><div><h2>June increment progress</h2><p>84 employees scheduled for this cycle</p></div><label className="filter-button"><SlidersHorizontal size={16} /><select value={period} onChange={(event) => setPeriod(event.target.value)} aria-label="Progress period"><option>This month</option><option>Last month</option><option>This quarter</option></select><ChevronDown size={14} /></label></div>
+        <div className="panel__header"><div><h2>Increment progress</h2><p>{dueThisMonth.length} employees scheduled for this cycle</p></div><label className="filter-button"><SlidersHorizontal size={16} /><select value={period} onChange={(event) => setPeriod(event.target.value)} aria-label="Progress period"><option>This month</option><option>Last month</option><option>This quarter</option></select><ChevronDown size={14} /></label></div>
         <div className="progress-content"><div className="progress-stat"><strong>68%</strong><span>{period} completion</span></div><div className="progress-details"><div className="progress-bar"><span /></div><div className="progress-legend"><span><i className="dot green" />57 completed</span><span><i className="dot gold" />15 in review</span><span><i className="dot gray" />12 not started</span><b>57 of 84</b></div></div></div>
       </section>
     </main>

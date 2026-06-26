@@ -6,6 +6,46 @@ namespace HRIncrement.Infrastructure.HcmIntegration;
 
 internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeReader
 {
+    public async Task<EmployeeSearchResultDto> SearchAsync(
+        string? search,
+        string? payCode,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = Project();
+        if (!string.IsNullOrWhiteSpace(payCode))
+        {
+            var payCodeTerm = payCode.Trim();
+            query = query.Where(x => x.PayCode.Contains(payCodeTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(x =>
+                x.EmployeeNumber.Contains(term) ||
+                x.PayCode.Contains(term) ||
+                x.FullName.Contains(term) ||
+                x.Designation.Contains(term) ||
+                x.Grade.Contains(term) ||
+                x.Department.Contains(term) ||
+                x.Location.Contains(term));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderBy(x => x.EmployeeNumber)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new EmployeeSearchResultDto(items, page, pageSize, totalCount);
+    }
+
     public Task<EmployeeDto?> GetByEmployeeNumberAsync(string employeeNumber, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(employeeNumber);

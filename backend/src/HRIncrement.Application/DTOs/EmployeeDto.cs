@@ -12,3 +12,9 @@ public sealed record EmployeeDto(
     DateOnly? PromotionDate,
     DateOnly IncrementDate,
     decimal CurrentSalary);
+
+public sealed record EmployeeSearchResultDto(
+    IReadOnlyList<EmployeeDto> Items,
+    int Page,
+    int PageSize,
+    int TotalCount);
