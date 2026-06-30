@@ -21,6 +21,7 @@ The approved HR workbook path is also configured in `.env`:
 
 ```dotenv
 HR_STAFF_WORKBOOK=/absolute/path/to/approved-hr-staff.xlsx
+SALARY_CONVERSION_WORKBOOK=/absolute/path/to/salary-conversion-table.xlsx
 ```
 
 ## Start the System
@@ -59,6 +60,10 @@ The API runs at:
 ```text
 http://localhost:5180
 ```
+
+Development uses QuestPDF's `Evaluation` license declaration. Before a
+production deployment, set `QuestPdf:License` to the license tier approved for
+the organization; do not deploy with the evaluation setting.
 
 Verify it in another Terminal:
 
@@ -104,8 +109,14 @@ After updating `HR_STAFF_WORKBOOK` in `.env`, rebuild the `HRStaff` database:
 database/scripts/import_hr_staff.sh
 ```
 
-This recreates only the `HRStaff` employee table and view. It does not modify
-the original workbook or the `HCM8` database.
+This recreates the `HRStaff` employee table, salary conversion points, and API
+view. The importer assigns each conversion worksheet to its approved employee
+grade code, then calculates the next salary point, converted 2026 salary, and
+2026 payable salary. It does not modify either workbook or the `HCM8` database.
+
+Employees whose current salary is above the final point in the assigned table
+are marked for stagnation allowance review; the system does not invent a
+conversion value for those records.
 
 ## Confirm Live HCM Data
 

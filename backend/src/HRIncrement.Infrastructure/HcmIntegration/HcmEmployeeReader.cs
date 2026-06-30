@@ -125,9 +125,13 @@ internal sealed class HcmEmployeeReader(
             x.PromotionDate,
             x.IncrementDate,
             x.CurrentSalary,
+            x.SalaryPoint,
             x.IncrementAmount,
+            x.ConvertedSalary,
+            x.PayableSalary,
             x.StagnationAllowance,
-            x.SalaryScale));
+            x.SalaryScale,
+            x.SalaryConversionStatus));
 
     private static IQueryable<HcmEmployeeRow> ApplySorting(
         IQueryable<HcmEmployeeRow> query,

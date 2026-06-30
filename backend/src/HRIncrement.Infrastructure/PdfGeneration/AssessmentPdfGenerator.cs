@@ -43,7 +43,7 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                 NumberedRow(column, "5.", "i) Date of appointment", assessment.AppointmentDate.ToString("dd/MM/yyyy"));
                 NumberedRow(column, string.Empty, "ii) Date of promotion to the present grade", assessment.PromotionDate?.ToString("dd/MM/yyyy") ?? "................................");
                 NumberedRow(column, "6.", "Department", assessment.Department, "Location", assessment.Location);
-                NumberedRow(column, "7.", "Salary Scale", $"{assessment.GazetteReference} / To be mapped");
+                NumberedRow(column, "7.", "Salary Scale", assessment.GazetteReference);
 
                 column.Item().PaddingTop(8).Row(row =>
                 {
@@ -51,9 +51,10 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                     row.RelativeItem().Column(left =>
                     {
                         left.Item().Text("Present Salary Point");
-                        left.Item().PaddingTop(8).Text(Currency(assessment.CurrentSalary));
-                        left.Item().PaddingTop(8).Text("Payable Salary:");
-                        left.Item().PaddingTop(8).Text(Currency(assessment.CurrentSalary));
+                        left.Item().PaddingTop(8).Text(
+                            assessment.SalaryPoint is null
+                                ? Currency(assessment.CurrentSalary)
+                                : $"Step {assessment.SalaryPoint} / {Currency(assessment.CurrentSalary)}");
                     });
                     row.RelativeItem().Column(center =>
                     {
@@ -64,6 +65,8 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                     {
                         right.Item().Text("Present salary plus Increment");
                         right.Item().PaddingTop(8).Text(Currency(assessment.CurrentSalary + assessment.IncrementAmount));
+                        right.Item().PaddingTop(8).Text("Converted Salary:");
+                        right.Item().PaddingTop(8).Text(Currency(assessment.ConvertedSalary));
                         right.Item().PaddingTop(8).Text("Payable Salary:");
                         right.Item().PaddingTop(8).Text(Currency(assessment.PayableSalary));
                     });

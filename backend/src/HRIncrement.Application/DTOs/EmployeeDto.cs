@@ -12,9 +12,13 @@ public sealed record EmployeeDto(
     DateOnly? PromotionDate,
     DateOnly? IncrementDate,
     decimal CurrentSalary,
+    int? SalaryPoint,
     decimal IncrementAmount,
+    decimal ConvertedSalary,
+    decimal PayableSalary,
     decimal StagnationAllowance,
-    string SalaryScale);
+    string SalaryScale,
+    string SalaryConversionStatus);
 
 public sealed record EmployeeSearchResultDto(
     IReadOnlyList<EmployeeDto> Items,

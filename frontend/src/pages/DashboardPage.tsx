@@ -12,7 +12,10 @@ import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 type OverviewTab = 'summary' | 'upcoming';
 
 function toDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function formatDate(value: string | null) {
@@ -69,9 +72,13 @@ function parseEmployeeExport(text: string): Employee[] {
         promotionDate: promotionDate || null,
         incrementDate: cleanText(incrementDate) || null,
         currentSalary: Number(currentSalary),
+        salaryPoint: null,
         incrementAmount: Number(incrementAmount || 0),
+        convertedSalary: 0,
+        payableSalary: 0,
         stagnationAllowance: Number(stagnationAllowance || 0),
         salaryScale: cleanText(salaryScale),
+        salaryConversionStatus: 'Unavailable',
       };
     });
 }

@@ -64,9 +64,13 @@ function parseEmployeeExport(text: string): Employee[] {
         promotionDate: promotionDate || null,
         incrementDate: cleanText(incrementDate) || null,
         currentSalary: Number(currentSalary),
+        salaryPoint: null,
         incrementAmount: Number(incrementAmount || 0),
+        convertedSalary: 0,
+        payableSalary: 0,
         stagnationAllowance: Number(stagnationAllowance || 0),
         salaryScale: cleanText(salaryScale),
+        salaryConversionStatus: 'Unavailable',
       };
     });
 }

@@ -21,7 +21,10 @@ import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 type IncrementPeriod = 'next30' | 'next60' | 'thisMonth';
 
 function toDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function cleanText(value: string | null | undefined) {
@@ -69,9 +72,13 @@ function parseEmployeeExport(text: string): Employee[] {
         promotionDate: promotionDate || null,
         incrementDate: cleanText(incrementDate) || null,
         currentSalary: Number(currentSalary),
+        salaryPoint: null,
         incrementAmount: Number(incrementAmount || 0),
+        convertedSalary: 0,
+        payableSalary: 0,
         stagnationAllowance: Number(stagnationAllowance || 0),
         salaryScale: cleanText(salaryScale),
+        salaryConversionStatus: 'Unavailable',
       };
     });
 }
@@ -131,14 +138,29 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-function estimateIncrement(employee: Employee) {
-  if (employee.incrementAmount) return employee.incrementAmount;
-  if (!employee.currentSalary) return 0;
-  return Math.round(employee.currentSalary * 0.04);
+function getIncrementAmount(employee: Employee) {
+  return employee.incrementAmount || 0;
 }
 
 function getPayableSalary(employee: Employee) {
-  return employee.currentSalary + estimateIncrement(employee);
+  return employee.payableSalary || 0;
+}
+
+function getConversionLabel(employee: Employee) {
+  switch (employee.salaryConversionStatus) {
+    case 'Applied':
+      return 'Gazette applied';
+    case 'MaximumPoint':
+      return 'Maximum point';
+    case 'Unmatched':
+      return 'Needs mapping';
+    default:
+      return 'Unavailable';
+  }
+}
+
+function canGenerateAssessment(employee: Employee) {
+  return employee.salaryConversionStatus === 'Applied';
 }
 
 function initials(employee: Employee) {
@@ -175,7 +197,14 @@ function escapeHtml(value: string | number | null | undefined) {
 
 function buildAssessmentPayload(employee: Employee): AssessmentFormPayload {
   if (!employee.incrementDate) throw new Error('An increment date is required to generate an assessment.');
-  const incrementAmount = estimateIncrement(employee);
+  if (!canGenerateAssessment(employee)) {
+    throw new Error(
+      employee.salaryConversionStatus === 'MaximumPoint'
+        ? 'This employee is at the maximum salary point and needs a stagnation allowance review.'
+        : 'The employee salary does not match the assigned grade conversion table.',
+    );
+  }
+  const incrementAmount = getIncrementAmount(employee);
 
   return {
     employeeNumber: employee.employeeNumber,
@@ -189,8 +218,10 @@ function buildAssessmentPayload(employee: Employee): AssessmentFormPayload {
     promotionDate: employee.promotionDate,
     incrementDate: employee.incrementDate,
     currentSalary: employee.currentSalary,
+    salaryPoint: employee.salaryPoint,
     incrementAmount,
-    payableSalary: employee.currentSalary + incrementAmount,
+    convertedSalary: employee.convertedSalary || employee.currentSalary + incrementAmount,
+    payableSalary: getPayableSalary(employee) || employee.currentSalary + incrementAmount,
     gazetteReference: employee.salaryScale || 'Government salary gazette',
   };
 }
@@ -215,6 +246,7 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
   const currentSalary = formatMoney(payload.currentSalary).replace('LKR', 'Rs.');
   const incrementAmount = formatMoney(payload.incrementAmount).replace('LKR', 'Rs.');
   const salaryPlusIncrement = formatMoney(payload.currentSalary + payload.incrementAmount).replace('LKR', 'Rs.');
+  const convertedSalary = formatMoney(payload.convertedSalary).replace('LKR', 'Rs.');
   const payableSalary = formatMoney(payload.payableSalary).replace('LKR', 'Rs.');
 
   formWindow.document.write(`
@@ -264,13 +296,13 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
         <div class="row simple"><span>5.</span><span>i) Date of appointment</span><span>:</span><span>${escapeHtml(formatDate(payload.appointmentDate))}</span></div>
         <div class="row simple"><span></span><span>ii) Date of promotion to the present grade</span><span>:</span><span>${escapeHtml(payload.promotionDate ? formatDate(payload.promotionDate) : '................................')}</span></div>
         <div class="row"><span>6.</span><span>Department</span><span>:</span><span>${escapeHtml(payload.department)}</span><span>Location</span><span>:</span><span>${escapeHtml(payload.location)}</span></div>
-        <div class="row simple"><span>7.</span><span>Salary Scale</span><span>:</span><span>${escapeHtml(payload.gazetteReference)} / To be mapped</span></div>
+        <div class="row simple"><span>7.</span><span>Salary Scale</span><span>:</span><span>${escapeHtml(payload.gazetteReference)}</span></div>
 
         <div class="three">
           <span>8.</span>
-          <div>Present Salary Point<span>${escapeHtml(currentSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(currentSalary)}</span></div>
+          <div>Present Salary Point<span>${escapeHtml(payload.salaryPoint ? `Step ${payload.salaryPoint} / ${currentSalary}` : currentSalary)}</span></div>
           <div>Amount of Increment due<span>${escapeHtml(incrementAmount)}</span></div>
-          <div>Present salary plus Increment<span>${escapeHtml(salaryPlusIncrement)}</span><span>Payable Salary:</span><span>${escapeHtml(payableSalary)}</span></div>
+          <div>Present salary plus Increment<span>${escapeHtml(salaryPlusIncrement)}</span><span>Converted Salary:</span><span>${escapeHtml(convertedSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(payableSalary)}</span></div>
         </div>
 
         <div class="question"><span>9.</span><span>Whether increment involves passing of Efficiency Bar. If so has the Officer qualified himself in all respect (Only for Clerical & Allied grades).</span></div>
@@ -313,6 +345,7 @@ export function IncrementPage() {
   const [generating, setGenerating] = useState(false);
   const [usingExport, setUsingExport] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
   const range = useMemo(() => getPeriodRange(period), [period]);
 
@@ -321,6 +354,7 @@ export function IncrementPage() {
 
     setLoading(true);
     setError(null);
+    setAssessmentError(null);
     setUsingExport(false);
 
     getDueIncrements({
@@ -369,7 +403,7 @@ export function IncrementPage() {
   const visibleRows = filterRows(rows, activePayCode);
   const selectedEmployee = visibleRows.find((employee) => employee.employeeNumber === selectedEmployeeNumber) ?? visibleRows[0] ?? null;
   const readyCount = visibleRows.filter((employee) => getDaysUntil(employee.incrementDate) <= 14).length;
-  const estimatedTotal = visibleRows.reduce((total, employee) => total + estimateIncrement(employee), 0);
+  const incrementTotal = visibleRows.reduce((total, employee) => total + getIncrementAmount(employee), 0);
 
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -385,7 +419,14 @@ export function IncrementPage() {
   const handleGenerateAssessment = async () => {
     if (!selectedEmployee) return;
 
-    const payload = buildAssessmentPayload(selectedEmployee);
+    let payload: AssessmentFormPayload;
+    try {
+      payload = buildAssessmentPayload(selectedEmployee);
+      setAssessmentError(null);
+    } catch (assessmentError) {
+      setAssessmentError(assessmentError instanceof Error ? assessmentError.message : 'Unable to generate the assessment.');
+      return;
+    }
     if (usingExport) {
       openPrintableAssessmentForm(payload);
       return;
@@ -413,7 +454,7 @@ export function IncrementPage() {
           <h1>Increment page</h1>
           <p>{usingExport ? 'Processing queue loaded from the exported HCM employee records.' : `Review upcoming increment records from the ${sourceLabel} database.`}</p>
         </div>
-        <button className="primary-button" onClick={handleGenerateAssessment} disabled={!selectedEmployee || generating}>
+        <button className="primary-button" onClick={handleGenerateAssessment} disabled={!selectedEmployee || generating || !canGenerateAssessment(selectedEmployee)}>
           <FileText size={16} /> {generating ? 'Generating...' : 'Generate assessment'}
         </button>
       </section>
@@ -421,7 +462,7 @@ export function IncrementPage() {
       <section className="stat-grid increment-stat-grid">
         <article className="stat-card"><div className="stat-card__icon mint"><Users /></div><div className="stat-card__meta"><span>Employees queued</span><strong>{visibleRows.length}</strong><small>{range.label}</small></div></article>
         <article className="stat-card"><div className="stat-card__icon amber"><CalendarDays /></div><div className="stat-card__meta"><span>Ready in 14 days</span><strong>{readyCount}</strong><small>needs review</small></div></article>
-        <article className="stat-card"><div className="stat-card__icon violet"><Calculator /></div><div className="stat-card__meta"><span>Estimated increments</span><strong>{formatMoney(estimatedTotal)}</strong><small>temporary calculation</small></div></article>
+        <article className="stat-card"><div className="stat-card__icon violet"><Calculator /></div><div className="stat-card__meta"><span>Gazette increments</span><strong>{formatMoney(incrementTotal)}</strong><small>assigned conversion tables</small></div></article>
         <article className="stat-card"><div className="stat-card__icon blue"><CheckCircle2 /></div><div className="stat-card__meta"><span>Status</span><strong>{usingExport ? 'Export' : 'Live'}</strong><small>{sourceLabel} source</small></div></article>
       </section>
 
@@ -453,27 +494,27 @@ export function IncrementPage() {
 
           {loading && <div className="employee-message">Loading increment records...</div>}
           {error && <div className="employee-message employee-message--error">{error}</div>}
+          {assessmentError && <div className="employee-message employee-message--error">{assessmentError}</div>}
           {usingExport && !loading && <div className="employee-message">Showing exported HCM records because the backend API is not available.</div>}
 
           {!loading && !error && (
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Employee</th><th>Pay code</th><th>Designation</th><th>Increment date</th><th>Current salary</th><th>Est. increment</th><th>Status</th><th /></tr>
+                  <tr><th>Employee</th><th>Pay code</th><th>Grade</th><th>Salary point</th><th>Current salary</th><th>Increment</th><th>Status</th><th /></tr>
                 </thead>
                 <tbody>
                   {visibleRows.map((employee, index) => {
                     const selected = selectedEmployee?.employeeNumber === employee.employeeNumber;
-                    const daysLeft = getDaysUntil(employee.incrementDate);
                     return (
                       <tr key={employee.employeeNumber} className={selected ? 'increment-row increment-row--selected' : 'increment-row'}>
                         <td><span className={`table-avatar avatar-${index % 4}`}>{initials(employee)}</span><span><strong>{getEmployeeName(employee)}</strong><small>{employee.employeeNumber}</small></span></td>
                         <td>{employee.payCode || '-'}</td>
-                        <td>{employee.designation || '-'}</td>
-                        <td>{formatDate(employee.incrementDate)}</td>
+                        <td>{employee.grade || '-'}</td>
+                        <td>{employee.salaryPoint ?? '-'}</td>
                         <td><strong>{formatMoney(employee.currentSalary)}</strong></td>
-                        <td><strong>{formatMoney(estimateIncrement(employee))}</strong></td>
-                        <td><span className={daysLeft <= 14 ? 'status status--review' : 'status status--ready'}>{daysLeft <= 14 ? 'Review' : 'Scheduled'}</span></td>
+                        <td><strong>{formatMoney(getIncrementAmount(employee))}</strong></td>
+                        <td><span className={employee.salaryConversionStatus === 'Applied' ? 'status status--ready' : 'status status--review'}>{getConversionLabel(employee)}</span></td>
                         <td><button className="text-button" onClick={() => setSelectedEmployeeNumber(employee.employeeNumber)}>Select</button></td>
                       </tr>
                     );
@@ -489,7 +530,7 @@ export function IncrementPage() {
           <div className="panel__header">
             <div>
               <h2>Increment preview</h2>
-              <p>Gazette rules can be connected here next.</p>
+              <p>Grade-based 2026 salary conversion</p>
             </div>
             <TrendingUp size={18} />
           </div>
@@ -505,12 +546,15 @@ export function IncrementPage() {
                 <div><dt>Grade</dt><dd>{selectedEmployee.grade || '-'}</dd></div>
                 <div><dt>Location</dt><dd>{selectedEmployee.location || selectedEmployee.department || '-'}</dd></div>
                 <div><dt>Increment date</dt><dd>{formatDate(selectedEmployee.incrementDate)}</dd></div>
+                <div><dt>Salary point</dt><dd>{selectedEmployee.salaryPoint ?? '-'}</dd></div>
                 <div><dt>Current salary</dt><dd>{formatMoney(selectedEmployee.currentSalary)}</dd></div>
-                <div><dt>Estimated increment</dt><dd>{formatMoney(estimateIncrement(selectedEmployee))}</dd></div>
+                <div><dt>Increment amount</dt><dd>{formatMoney(getIncrementAmount(selectedEmployee))}</dd></div>
+                <div><dt>Converted salary</dt><dd>{formatMoney(selectedEmployee.convertedSalary)}</dd></div>
                 <div><dt>Payable salary</dt><dd>{formatMoney(getPayableSalary(selectedEmployee))}</dd></div>
+                <div><dt>Conversion</dt><dd>{getConversionLabel(selectedEmployee)}</dd></div>
               </dl>
 
-              <button className="primary-button" onClick={handleGenerateAssessment} disabled={generating}>
+              <button className="primary-button" onClick={handleGenerateAssessment} disabled={generating || !canGenerateAssessment(selectedEmployee)}>
                 {generating ? 'Generating...' : 'Generate assessment'} <ArrowRight size={15} />
               </button>
             </div>

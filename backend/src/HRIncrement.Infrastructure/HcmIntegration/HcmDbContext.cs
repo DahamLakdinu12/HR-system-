@@ -18,6 +18,8 @@ internal sealed class HcmDbContext(DbContextOptions<HcmDbContext> options) : DbC
             builder.Property(x => x.EmployeeNumber).HasColumnName("EmployeeNumber");
             builder.Property(x => x.CurrentSalary).HasPrecision(19, 4);
             builder.Property(x => x.IncrementAmount).HasPrecision(19, 4);
+            builder.Property(x => x.ConvertedSalary).HasPrecision(19, 4);
+            builder.Property(x => x.PayableSalary).HasPrecision(19, 4);
             builder.Property(x => x.StagnationAllowance).HasPrecision(19, 4);
         });
     }
@@ -44,7 +46,11 @@ internal sealed class HcmEmployeeRow
     public DateOnly? PromotionDate { get; init; }
     public DateOnly? IncrementDate { get; init; }
     public decimal CurrentSalary { get; init; }
+    public int? SalaryPoint { get; init; }
     public decimal IncrementAmount { get; init; }
+    public decimal ConvertedSalary { get; init; }
+    public decimal PayableSalary { get; init; }
     public decimal StagnationAllowance { get; init; }
     public string SalaryScale { get; init; } = string.Empty;
+    public string SalaryConversionStatus { get; init; } = string.Empty;
 }

@@ -52,9 +52,13 @@ SELECT
             ELSE DATEADD(year, DATEDIFF(year, e.DateOfAppointment, GETDATE()), e.DateOfAppointment)
         END) AS IncrementDate,
     CAST(COALESCE(NULLIF(e.NewSalary, 0), NULLIF(e.Salary, 0), 0) AS decimal(19, 4)) AS CurrentSalary,
+    CAST(NULL AS int) AS SalaryPoint,
     CAST(0 AS decimal(19, 4)) AS IncrementAmount,
+    CAST(0 AS decimal(19, 4)) AS ConvertedSalary,
+    CAST(0 AS decimal(19, 4)) AS PayableSalary,
     CAST(0 AS decimal(19, 4)) AS StagnationAllowance,
-    CAST('' AS varchar(300)) AS SalaryScale
+    CAST('' AS varchar(300)) AS SalaryScale,
+    CAST('Unavailable' AS varchar(30)) AS SalaryConversionStatus
 FROM dbo.MI_Employer_Employee AS e
 LEFT JOIN dbo.View_EmployeeDet AS details ON details.Number = e.Number
 LEFT JOIN dbo.Designation AS des ON des.DesignationCode = e.DesignationCode

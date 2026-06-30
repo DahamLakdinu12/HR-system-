@@ -10,9 +10,13 @@ export type Employee = {
   promotionDate: string | null;
   incrementDate: string | null;
   currentSalary: number;
+  salaryPoint: number | null;
   incrementAmount: number;
+  convertedSalary: number;
+  payableSalary: number;
   stagnationAllowance: number;
   salaryScale: string;
+  salaryConversionStatus: 'Applied' | 'MaximumPoint' | 'Unmatched' | 'Unavailable';
 };
 
 export type EmployeeSearchResult = {

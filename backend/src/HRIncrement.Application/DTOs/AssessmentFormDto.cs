@@ -12,6 +12,8 @@ public sealed record AssessmentFormDto(
     DateOnly? PromotionDate,
     DateOnly IncrementDate,
     decimal CurrentSalary,
+    int? SalaryPoint,
     decimal IncrementAmount,
+    decimal ConvertedSalary,
     decimal PayableSalary,
     string GazetteReference);

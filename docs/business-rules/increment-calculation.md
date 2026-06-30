@@ -1,19 +1,35 @@
-# Increment Calculation Baseline
+# Increment Calculation Rules
 
-## Implemented rule boundary
+## Approved HR salary conversion
 
-The initial calculation engine accepts a salary point, converted salary, increment amount,
-maximum salary, and stagnation eligibility. It calculates:
+For the HR staff data source, the system imports the approved employee workbook and
+the salary conversion workbook into separate tables in the `HRStaff` database.
 
-1. `uncapped salary = converted salary + increment amount`
-2. `payable salary = min(uncapped salary, maximum salary)`
-3. `stagnation allowance = max(0, uncapped salary - maximum salary)` when eligible
-4. Monetary results are rounded to two decimals using `AwayFromZero`.
+An employee is matched to a conversion point using:
 
-## Required business validation
+1. The employee's `NewGrade` assigned to a specific conversion worksheet.
+2. The employee's current `SalaryPoint` matched exactly to the worksheet's
+   `As at 2024.12.31 Basic Salary`.
 
-This baseline is not a substitute for the government gazette. Before production, HR and
-Finance must approve documented rules for conversion-point selection, promotion handling,
-effective dates, no-pay periods, deferred increments, maximum-step behavior, stagnation
-frequency, and statutory rounding. Each approved rule set must be versioned and historical
-calculation inputs and outputs must remain immutable.
+For a matched employee with a following point:
+
+- `Salary point` is the matched worksheet row.
+- `Current salary` is the employee's 2024 basic salary.
+- `Increment amount` is the next point's 2024 salary minus the current point's
+  2024 salary.
+- `Converted salary` is the next point's 2026 basic salary.
+- `Payable salary` is the next point's 2026 paid salary.
+
+The assessment form can only be generated when this complete match has status
+`Applied`.
+
+## Review cases
+
+- `MaximumPoint`: the employee matches the final point in the assigned table.
+  HR must review the stagnation allowance before generating the assessment.
+- `Unmatched`: the grade is assigned but the current salary is not present in
+  that table. No conversion or payable salary is invented.
+- `Unavailable`: the selected data source has no approved conversion mapping.
+
+Promotion handling, deferred increments, efficiency bars, leave effects, and
+stagnation allowance decisions still require separately approved rules.

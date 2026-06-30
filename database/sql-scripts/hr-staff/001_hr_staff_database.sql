@@ -9,6 +9,7 @@ GO
 
 DROP VIEW IF EXISTS dbo.vw_HRIncrementEmployees;
 DROP TABLE IF EXISTS dbo.Employees;
+DROP TABLE IF EXISTS dbo.SalaryConversionPoints;
 GO
 
 CREATE TABLE dbo.Employees
@@ -41,6 +42,27 @@ CREATE TABLE dbo.Employees
 );
 GO
 
+CREATE TABLE dbo.SalaryConversionPoints
+(
+    GradeCode nvarchar(100) NOT NULL,
+    GazetteCode nvarchar(200) NOT NULL,
+    SalaryStep int NOT NULL,
+    PreviousSalary decimal(19,4) NOT NULL,
+    BasicSalary2025 decimal(19,4) NOT NULL,
+    UnpaidAmount2025 decimal(19,4) NOT NULL,
+    PaidSalary2025 decimal(19,4) NOT NULL,
+    BasicSalary2026 decimal(19,4) NOT NULL,
+    UnpaidAmount2026 decimal(19,4) NOT NULL,
+    PaidSalary2026 decimal(19,4) NOT NULL,
+    UnpaidAmount2027 decimal(19,4) NOT NULL,
+    PaidSalary2027 decimal(19,4) NOT NULL,
+    CONSTRAINT PK_HRStaff_SalaryConversionPoints
+        PRIMARY KEY (GradeCode, SalaryStep),
+    CONSTRAINT UQ_HRStaff_SalaryConversionPoints_GradeSalary
+        UNIQUE (GradeCode, PreviousSalary)
+);
+GO
+
 CREATE INDEX IX_HRStaff_Employees_NextIncrementDate
     ON dbo.Employees (NextIncrementDate, PayCode)
     INCLUDE (FirstName, LastName, Department, WorkLocation, SalaryPoint, IncrementAmount);
@@ -64,8 +86,39 @@ SELECT
     DateOfPromotion AS PromotionDate,
     NextIncrementDate AS IncrementDate,
     SalaryPoint AS CurrentSalary,
-    IncrementAmount,
+    currentPoint.SalaryStep AS SalaryPoint,
+    CASE
+        WHEN nextPoint.SalaryStep IS NOT NULL
+            THEN nextPoint.PreviousSalary - currentPoint.PreviousSalary
+        ELSE IncrementAmount
+    END AS IncrementAmount,
+    CASE
+        WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.BasicSalary2026
+        WHEN currentPoint.SalaryStep IS NOT NULL THEN currentPoint.BasicSalary2026
+        ELSE 0
+    END AS ConvertedSalary,
+    CASE
+        WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.PaidSalary2026
+        WHEN currentPoint.SalaryStep IS NOT NULL THEN currentPoint.PaidSalary2026
+        ELSE 0
+    END AS PayableSalary,
     COALESCE(StagnationAllowance, 0) AS StagnationAllowance,
-    COALESCE(SalaryScale, '') AS SalaryScale
-FROM dbo.Employees;
+    COALESCE(currentPoint.GazetteCode, SalaryScale, '') AS SalaryScale,
+    CASE
+        WHEN nextPoint.SalaryStep IS NOT NULL THEN 'Applied'
+        WHEN currentPoint.SalaryStep IS NOT NULL THEN 'MaximumPoint'
+        ELSE 'Unmatched'
+    END AS SalaryConversionStatus
+FROM dbo.Employees AS employee
+LEFT JOIN dbo.SalaryConversionPoints AS currentPoint
+    ON currentPoint.GradeCode = employee.NewGrade
+    AND currentPoint.PreviousSalary = employee.SalaryPoint
+OUTER APPLY
+(
+    SELECT TOP (1) candidate.*
+    FROM dbo.SalaryConversionPoints AS candidate
+    WHERE candidate.GradeCode = currentPoint.GradeCode
+      AND candidate.SalaryStep > currentPoint.SalaryStep
+    ORDER BY candidate.SalaryStep
+) AS nextPoint;
 GO
