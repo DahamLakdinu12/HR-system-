@@ -13,6 +13,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDueIncrements } from '../services/api/employees';
+import { AssessmentFormPayload, generateAssessmentForm } from '../services/api/increments';
 import { Employee } from '../types/employee';
 
 type IncrementPeriod = 'next30' | 'next60' | 'thisMonth';
@@ -126,6 +127,10 @@ function estimateIncrement(employee: Employee) {
   return Math.round(employee.currentSalary * 0.04);
 }
 
+function getPayableSalary(employee: Employee) {
+  return employee.currentSalary + estimateIncrement(employee);
+}
+
 function initials(employee: Employee) {
   return getEmployeeName(employee)
     .split(' ')
@@ -149,6 +154,141 @@ function sortRows(rows: Employee[]) {
   );
 }
 
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function buildAssessmentPayload(employee: Employee): AssessmentFormPayload {
+  const incrementAmount = estimateIncrement(employee);
+
+  return {
+    employeeNumber: employee.employeeNumber,
+    payCode: employee.payCode || employee.employeeNumber,
+    employeeName: getEmployeeName(employee),
+    designation: employee.designation || '-',
+    grade: employee.grade || '-',
+    department: employee.department || '-',
+    location: employee.location || '-',
+    appointmentDate: employee.appointmentDate,
+    promotionDate: employee.promotionDate,
+    incrementDate: employee.incrementDate,
+    currentSalary: employee.currentSalary,
+    incrementAmount,
+    payableSalary: employee.currentSalary + incrementAmount,
+    gazetteReference: 'Government salary gazette',
+  };
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
+  const formWindow = window.open('', '_blank', 'width=900,height=1200');
+  if (!formWindow) return;
+
+  const previousPeriodStart = payload.appointmentDate || payload.incrementDate;
+  const previousPeriodEnd = payload.incrementDate;
+  const currentSalary = formatMoney(payload.currentSalary).replace('LKR', 'Rs.');
+  const incrementAmount = formatMoney(payload.incrementAmount).replace('LKR', 'Rs.');
+  const salaryPlusIncrement = formatMoney(payload.currentSalary + payload.incrementAmount).replace('LKR', 'Rs.');
+  const payableSalary = formatMoney(payload.payableSalary).replace('LKR', 'Rs.');
+
+  formWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <title>Increment Assessment - ${escapeHtml(payload.payCode)}</title>
+        <style>
+          @page { size: A4; margin: 18mm 15mm; }
+          * { box-sizing: border-box; }
+          body { font-family: "Times New Roman", serif; margin: 0; color: #000; font-size: 16px; line-height: 1.35; }
+          .top-note { margin-bottom: 6px; }
+          h1 { margin: 0; text-align: center; font-size: 24px; }
+          h2 { margin: 0 0 16px; text-align: center; font-size: 20px; font-weight: 400; }
+          .period { text-align: center; font-size: 18px; margin-bottom: 18px; }
+          .rule { border-top: 4px solid #000; margin: 0 0 44px; }
+          .row { display: grid; grid-template-columns: 42px 210px 20px 1fr 90px 16px 120px; gap: 0; margin: 0 0 18px; align-items: baseline; }
+          .row.simple { grid-template-columns: 42px 210px 20px 1fr; }
+          .three { display: grid; grid-template-columns: 42px 1fr 1fr 1fr; gap: 22px; margin: 22px 0; }
+          .three div span { display: block; margin-top: 10px; }
+          .question { display: grid; grid-template-columns: 42px 1fr; margin: 18px 0; }
+          .dots { margin-left: 84px; letter-spacing: 2px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+          th, td { text-align: center; padding: 5px 7px; vertical-align: top; }
+          th:first-child, td:first-child { text-align: left; width: 38%; }
+          .leave-title { display: flex; justify-content: space-between; margin-top: 24px; }
+          .note { margin-top: 20px; }
+          .sign { margin-top: 120px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .sign strong { display: block; }
+          footer { margin-top: 50px; border-top: 1px solid #777; padding-top: 36px; font-size: 13px; font-weight: 700; }
+          @media print { button { display: none; } }
+          button { position: fixed; right: 20px; top: 20px; padding: 10px 14px; border: 0; border-radius: 8px; background: #176b55; color: white; font: 700 13px sans-serif; }
+        </style>
+      </head>
+      <body>
+        <button onclick="window.print()">Print / Save PDF</button>
+        <div class="top-note">Part I ( To be filled by the HR Department)</div>
+        <h1>Board of Investment of Sri Lanka</h1>
+        <h2>Performance Assessment (Junior Management)</h2>
+        <div class="period">Period : From&nbsp; <strong>${escapeHtml(formatDate(previousPeriodStart))}</strong> to <strong>${escapeHtml(formatDate(previousPeriodEnd))}</strong></div>
+        <div class="rule"></div>
+
+        <div class="row simple"><span>1.</span><span>Name of employee</span><span>:</span><span>${escapeHtml(payload.employeeName)}</span></div>
+        <div class="row simple"><span>2.</span><span>Pay Code No.</span><span>:</span><span>${escapeHtml(payload.payCode)}</span></div>
+        <div class="row"><span>3.</span><span>Designation</span><span>:</span><span>${escapeHtml(payload.designation)}</span><span>Grade</span><span>:</span><span>${escapeHtml(payload.grade)}</span></div>
+        <div class="row simple"><span>4.</span><span>Date of Increment</span><span>:</span><span>${escapeHtml(formatDate(payload.incrementDate))}</span></div>
+        <div class="row simple"><span>5.</span><span>i) Date of appointment</span><span>:</span><span>${escapeHtml(formatDate(payload.appointmentDate))}</span></div>
+        <div class="row simple"><span></span><span>ii) Date of promotion to the present grade</span><span>:</span><span>${escapeHtml(payload.promotionDate ? formatDate(payload.promotionDate) : '................................')}</span></div>
+        <div class="row"><span>6.</span><span>Department</span><span>:</span><span>${escapeHtml(payload.department)}</span><span>Location</span><span>:</span><span>${escapeHtml(payload.location)}</span></div>
+        <div class="row simple"><span>7.</span><span>Salary Scale</span><span>:</span><span>${escapeHtml(payload.gazetteReference)} / To be mapped</span></div>
+
+        <div class="three">
+          <span>8.</span>
+          <div>Present Salary Point<span>${escapeHtml(currentSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(currentSalary)}</span></div>
+          <div>Amount of Increment due<span>${escapeHtml(incrementAmount)}</span></div>
+          <div>Present salary plus Increment<span>${escapeHtml(salaryPlusIncrement)}</span><span>Payable Salary:</span><span>${escapeHtml(payableSalary)}</span></div>
+        </div>
+
+        <div class="question"><span>9.</span><span>Whether increment involves passing of Efficiency Bar. If so has the Officer qualified himself in all respect (Only for Clerical & Allied grades).</span></div>
+        <div class="question"><span>10.</span><span>Whether increment for the previous year has been suspended, stopped or deferred.</span></div>
+        <div class="dots">............................................................................................</div>
+        <div class="row simple"><span>11.</span><span>Commendations/punishments during the increment period</span><span></span><span></span></div>
+
+        <div class="leave-title"><span>12. &nbsp; Particulars of leave during the period :</span><span>From&nbsp; ${escapeHtml(formatDate(previousPeriodStart))} - ${escapeHtml(formatDate(previousPeriodEnd))}</span></div>
+        <table>
+          <thead><tr><th></th><th>Casual</th><th>Vacation</th><th>*Sick</th><th>*No-pay</th><th>Late<br/>Attendance</th></tr></thead>
+          <tbody>
+            <tr><td>Leave availed of in the previous year<br/>.................................</td><td>........</td><td>........</td><td>........</td><td>........</td><td>........</td></tr>
+            <tr><td>Leave availed of in the current year<br/>.................................</td><td>........</td><td>........</td><td>........</td><td>........</td><td>........</td></tr>
+          </tbody>
+        </table>
+        <p class="note">* Please indicate whether Medical Certificates have been submitted.</p>
+
+        <div class="sign">
+          <div><strong>Date :</strong> ........................</div>
+          <div><strong>Officer concerned in HR Department</strong><strong>for Executive Director (HR & Admin.)</strong></div>
+        </div>
+        <footer>${escapeHtml(new Intl.DateTimeFormat('en-LK', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date()))}</footer>
+      </body>
+    </html>
+  `);
+  formWindow.document.close();
+  formWindow.focus();
+}
+
 export function IncrementPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<IncrementPeriod>('next30');
@@ -157,6 +297,7 @@ export function IncrementPage() {
   const [rows, setRows] = useState<Employee[]>([]);
   const [selectedEmployeeNumber, setSelectedEmployeeNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [usingExport, setUsingExport] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -221,6 +362,27 @@ export function IncrementPage() {
     setPeriod((current) => current);
   };
 
+  const handleGenerateAssessment = async () => {
+    if (!selectedEmployee) return;
+
+    const payload = buildAssessmentPayload(selectedEmployee);
+    if (usingExport) {
+      openPrintableAssessmentForm(payload);
+      return;
+    }
+
+    setGenerating(true);
+
+    try {
+      const pdf = await generateAssessmentForm(payload);
+      downloadBlob(pdf, `increment-assessment-${payload.payCode}.pdf`);
+    } catch {
+      openPrintableAssessmentForm(payload);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <main className="dashboard module-page increments-page">
       <button className="back-button" onClick={() => navigate('/dashboard')}><ArrowLeft size={16} /> Overview</button>
@@ -231,8 +393,8 @@ export function IncrementPage() {
           <h1>Increment page</h1>
           <p>{usingExport ? 'Processing queue loaded from the exported HCM employee records.' : 'Review upcoming increment records from the HCM database.'}</p>
         </div>
-        <button className="primary-button" onClick={() => navigate('/assessments')}>
-          <FileText size={16} /> Generate assessment
+        <button className="primary-button" onClick={handleGenerateAssessment} disabled={!selectedEmployee || generating}>
+          <FileText size={16} /> {generating ? 'Generating...' : 'Generate assessment'}
         </button>
       </section>
 
@@ -325,11 +487,11 @@ export function IncrementPage() {
                 <div><dt>Increment date</dt><dd>{formatDate(selectedEmployee.incrementDate)}</dd></div>
                 <div><dt>Current salary</dt><dd>{formatMoney(selectedEmployee.currentSalary)}</dd></div>
                 <div><dt>Estimated increment</dt><dd>{formatMoney(estimateIncrement(selectedEmployee))}</dd></div>
-                <div><dt>Payable salary</dt><dd>{formatMoney(selectedEmployee.currentSalary + estimateIncrement(selectedEmployee))}</dd></div>
+                <div><dt>Payable salary</dt><dd>{formatMoney(getPayableSalary(selectedEmployee))}</dd></div>
               </dl>
 
-              <button className="primary-button" onClick={() => navigate(`/employees?payCode=${selectedEmployee.payCode || selectedEmployee.employeeNumber}`)}>
-                Open employee <ArrowRight size={15} />
+              <button className="primary-button" onClick={handleGenerateAssessment} disabled={generating}>
+                {generating ? 'Generating...' : 'Generate assessment'} <ArrowRight size={15} />
               </button>
             </div>
           ) : (
