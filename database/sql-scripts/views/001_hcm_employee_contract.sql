@@ -27,25 +27,23 @@ SELECT
             e.Surname))), ''),
         LTRIM(RTRIM(e.Number))) AS FullName,
     COALESCE(
+        NULLIF(LTRIM(RTRIM(details.Designation)), ''),
         NULLIF(LTRIM(RTRIM(des.DesignationName)), ''),
         NULLIF(LTRIM(RTRIM(e.JobTitle)), ''),
         '') AS Designation,
     COALESCE(NULLIF(LTRIM(RTRIM(g.GradeName)), ''), '') AS Grade,
     COALESCE(
+        NULLIF(LTRIM(RTRIM(details.Department)), ''),
         NULLIF(LTRIM(RTRIM(org4.Name)), ''),
         NULLIF(LTRIM(RTRIM(d.DepartmentName)), ''),
         '') AS Department,
     COALESCE(
+        NULLIF(LTRIM(RTRIM(details.Location)), ''),
         NULLIF(LTRIM(RTRIM(org2.Name)), ''),
         NULLIF(LTRIM(RTRIM(loc.LocationName)), ''),
         '') AS Location,
     CONVERT(date, CASE WHEN e.DateOfAppointment < '19000101' THEN GETDATE() ELSE e.DateOfAppointment END) AS AppointmentDate,
-    (
-        SELECT MAX(CONVERT(date, p.DatePromoted))
-        FROM dbo.hrEmpPromotions AS p
-        WHERE p.EmployeeCode = e.EmployeeCode
-          AND p.DatePromoted >= '19000101'
-    ) AS PromotionDate,
+    latestPromotion.EffectDate AS PromotionDate,
     CONVERT(date,
         CASE
             WHEN e.DateOfAppointment < '19000101' THEN GETDATE()
@@ -55,12 +53,21 @@ SELECT
         END) AS IncrementDate,
     CAST(COALESCE(NULLIF(e.NewSalary, 0), NULLIF(e.Salary, 0), 0) AS decimal(19, 4)) AS CurrentSalary
 FROM dbo.MI_Employer_Employee AS e
+LEFT JOIN dbo.View_EmployeeDet AS details ON details.Number = e.Number
 LEFT JOIN dbo.Designation AS des ON des.DesignationCode = e.DesignationCode
-LEFT JOIN dbo.Grade AS g ON g.GradeCode = e.GradeCode
+LEFT JOIN dbo.MI_eprf_hrGrade AS g ON g.GradeCode = e.GradeCode
 LEFT JOIN dbo.Department AS d ON d.DepartmentCode = e.DepartmentCode
 LEFT JOIN dbo.Location AS loc ON loc.LocationCode = e.Location
 LEFT JOIN dbo.MI_eprf_hrOrgLevel2 AS org2 ON org2.Level2Code = e.Level2Code
 LEFT JOIN dbo.MI_eprf_hrOrgLevel4 AS org4 ON org4.Level4Code = e.Level4Code
+OUTER APPLY
+(
+    SELECT TOP (1)
+        CONVERT(date, promotion.EffectDate) AS EffectDate
+    FROM dbo.MI_eprf_hrEmployeePromotionRequest AS promotion
+    WHERE promotion.EmployeeCode = e.EmployeeCode
+    ORDER BY promotion.EffectDate DESC, promotion.AutoID DESC
+) AS latestPromotion
 WHERE e.Deleted = 0
   AND e.Status = 1
   AND NULLIF(LTRIM(RTRIM(e.Number)), '') IS NOT NULL;
