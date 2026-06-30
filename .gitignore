@@ -9,6 +9,9 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env.local
 
+# Local HCM database backups
+/HCM/
+
 # Local configuration and tooling
 .DS_Store
 *.log
