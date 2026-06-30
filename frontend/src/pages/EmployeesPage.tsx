@@ -1,8 +1,8 @@
-import { ArrowLeft, ArrowRight, RefreshCw, Search, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, RefreshCw, Search, Users } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { searchEmployees } from '../services/api/employees';
-import { Employee, EmployeeSearchResult } from '../types/employee';
+import { getDepartments, searchEmployees } from '../services/api/employees';
+import { DepartmentSummary, Employee, EmployeeSearchResult } from '../types/employee';
 
 const pageSize = 25;
 type SortField = 'employee' | 'payCode' | 'designation' | 'grade' | 'location' | 'incrementDate' | 'currentSalary';
@@ -66,6 +66,22 @@ async function loadExportedEmployees() {
   const response = await fetch('/data/hcm-employees.psv');
   if (!response.ok) throw new Error('Employee export is unavailable.');
   return parseEmployeeExport(await response.text());
+}
+
+function getExportedDepartments(employees: Employee[]): DepartmentSummary[] {
+  const counts = new Map<string, number>();
+
+  employees.forEach((employee) => {
+    const department = cleanText(employee.department) || 'Unassigned';
+    counts.set(department, (counts.get(department) ?? 0) + 1);
+  });
+
+  return Array.from(counts, ([name, employeeCount]) => ({ name, employeeCount }))
+    .sort((left, right) => {
+      if (left.name === 'Unassigned') return 1;
+      if (right.name === 'Unassigned') return -1;
+      return left.name.localeCompare(right.name, 'en', { sensitivity: 'base' });
+    });
 }
 
 function getEmployeeName(employee: Employee) {
@@ -167,6 +183,7 @@ export function EmployeesPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
+  const activeTab = params.get('view') === 'departments' ? 'departments' : 'employees';
   const payCode = params.get('payCode') ?? '';
   const page = Math.max(1, Number(params.get('page') ?? 1));
   const sortFieldParam = params.get('sort');
@@ -178,6 +195,12 @@ export function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingExport, setUsingExport] = useState(false);
+  const [departments, setDepartments] = useState<DepartmentSummary[]>([]);
+  const [departmentSearch, setDepartmentSearch] = useState('');
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [departmentsError, setDepartmentsError] = useState<string | null>(null);
+  const [departmentsUsingExport, setDepartmentsUsingExport] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     setPayCodeInput(payCode);
@@ -212,10 +235,47 @@ export function EmployeesPage() {
     return () => {
       ignore = true;
     };
-  }, [page, payCode, sortDirection, sortField]);
+  }, [page, payCode, refreshKey, sortDirection, sortField]);
+
+  useEffect(() => {
+    let ignore = false;
+    setDepartmentsLoading(true);
+    setDepartmentsError(null);
+    setDepartmentsUsingExport(false);
+
+    getDepartments()
+      .then((data) => {
+        if (!ignore) setDepartments(data);
+      })
+      .catch(async () => {
+        try {
+          const employees = await loadExportedEmployees();
+          if (!ignore) {
+            setDepartments(getExportedDepartments(employees));
+            setDepartmentsUsingExport(true);
+          }
+        } catch {
+          if (!ignore) setDepartmentsError('Unable to load departments from HCM.');
+        }
+      })
+      .finally(() => {
+        if (!ignore) setDepartmentsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [refreshKey]);
 
   const totalPages = Math.max(1, Math.ceil((result?.totalCount ?? 0) / pageSize));
   const visibleEmployees = sortEmployees(result?.items ?? [], sortField, sortDirection);
+  const normalizedDepartmentSearch = departmentSearch.trim().toLowerCase();
+  const visibleDepartments = departments.filter((department) =>
+    department.name.toLowerCase().includes(normalizedDepartmentSearch));
+  const departmentEmployeeTotal = departments.reduce(
+    (total, department) => total + department.employeeCount,
+    0,
+  );
 
   const updateRoute = (
     nextPayCode: string,
@@ -257,17 +317,40 @@ export function EmployeesPage() {
       <section className="module-hero employee-hero">
         <div>
           <span className="eyebrow">HCM integration</span>
-          <h1>Employees</h1>
-          <p>{usingExport ? 'Showing records exported from the restored SQL Server HCM database.' : 'Live employee records restored from the SQL Server HCM database.'}</p>
+          <h1>{activeTab === 'employees' ? 'Employees' : 'Departments'}</h1>
+          <p>
+            {activeTab === 'employees'
+              ? (usingExport ? 'Showing records exported from the restored SQL Server HCM database.' : 'Live employee records from the SQL Server HCM database.')
+              : (departmentsUsingExport ? 'Department totals from the exported HCM records.' : 'Live department totals from the SQL Server HCM database.')}
+          </p>
         </div>
         <div className="employee-count">
-          <Users size={18} />
-          <span>{result?.totalCount ?? 0}</span>
-          <small>records</small>
+          {activeTab === 'employees' ? <Users size={18} /> : <Building2 size={18} />}
+          <span>{activeTab === 'employees' ? (result?.totalCount ?? 0) : departments.length}</span>
+          <small>{activeTab === 'employees' ? 'records' : 'departments'}</small>
         </div>
       </section>
 
-      <section className="panel employee-panel">
+      <nav className="overview-tabs employee-tabs" aria-label="Employee sections">
+        <button
+          className={activeTab === 'employees' ? 'overview-tab overview-tab--active' : 'overview-tab'}
+          onClick={() => navigate('/employees')}
+          type="button"
+        >
+          <Users size={14} /> All employees
+          <span>{result?.totalCount ?? 0}</span>
+        </button>
+        <button
+          className={activeTab === 'departments' ? 'overview-tab overview-tab--active' : 'overview-tab'}
+          onClick={() => navigate('/employees?view=departments')}
+          type="button"
+        >
+          <Building2 size={14} /> Departments
+          <span>{departments.length}</span>
+        </button>
+      </nav>
+
+      {activeTab === 'employees' && <section className="panel employee-panel">
         <div className="employee-toolbar">
           <form className="employee-search" onSubmit={handleSearch}>
             <Search size={17} />
@@ -279,7 +362,7 @@ export function EmployeesPage() {
             />
             <button type="submit">Search</button>
           </form>
-          <button className="filter-button" onClick={() => updateRoute(payCode, page)}>
+          <button className="filter-button" onClick={() => setRefreshKey((value) => value + 1)}>
             <RefreshCw size={15} /> Refresh
           </button>
         </div>
@@ -342,7 +425,85 @@ export function EmployeesPage() {
             </div>
           </>
         )}
-      </section>
+      </section>}
+
+      {activeTab === 'departments' && (
+        <section className="panel employee-panel department-panel">
+          <div className="employee-toolbar">
+            <div className="employee-search">
+              <Search size={17} />
+              <input
+                value={departmentSearch}
+                onChange={(event) => setDepartmentSearch(event.target.value)}
+                placeholder="Search departments..."
+                aria-label="Search departments"
+              />
+            </div>
+            <button className="filter-button" onClick={() => setRefreshKey((value) => value + 1)}>
+              <RefreshCw size={15} /> Refresh
+            </button>
+          </div>
+
+          {departmentsError && <div className="employee-message employee-message--error">{departmentsError}</div>}
+          {departmentsLoading && <div className="employee-message">Loading HCM departments...</div>}
+          {departmentsUsingExport && !departmentsLoading && (
+            <div className="employee-message">Showing department totals from the exported HCM employee records.</div>
+          )}
+
+          {!departmentsLoading && !departmentsError && (
+            <>
+              <div className="table-wrap">
+                <table className="employee-table department-table">
+                  <thead>
+                    <tr>
+                      <th>Department</th>
+                      <th>Employees</th>
+                      <th>Share of workforce</th>
+                      <th>Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleDepartments.map((department, index) => {
+                      const share = departmentEmployeeTotal
+                        ? Math.round((department.employeeCount / departmentEmployeeTotal) * 100)
+                        : 0;
+
+                      return (
+                        <tr key={department.name}>
+                          <td>
+                            <span className={`department-icon avatar-${index % 4}`}><Building2 size={15} /></span>
+                            <span>
+                              <strong>{department.name}</strong>
+                              <small>{department.name === 'Unassigned' ? 'No department recorded' : 'HCM department'}</small>
+                            </span>
+                          </td>
+                          <td><strong>{department.employeeCount.toLocaleString('en-LK')}</strong></td>
+                          <td>
+                            <div className="department-share">
+                              <span><i style={{ width: `${share}%` }} /></span>
+                              <strong>{share}%</strong>
+                            </div>
+                          </td>
+                          <td><span className="status status--ready">{departmentsUsingExport ? 'Export' : 'Live HCM'}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {visibleDepartments.length === 0 && (
+                <div className="employee-message">No matching departments were found.</div>
+              )}
+
+              <div className="department-footer">
+                <span>{visibleDepartments.length} of {departments.length} departments</span>
+                <strong>{departmentEmployeeTotal.toLocaleString('en-LK')} employees represented</strong>
+              </div>
+            </>
+          )}
+        </section>
+      )}
     </main>
   );
 }

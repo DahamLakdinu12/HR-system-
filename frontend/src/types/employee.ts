@@ -18,3 +18,8 @@ export type EmployeeSearchResult = {
   pageSize: number;
   totalCount: number;
 };
+
+export type DepartmentSummary = {
+  name: string;
+  employeeCount: number;
+};

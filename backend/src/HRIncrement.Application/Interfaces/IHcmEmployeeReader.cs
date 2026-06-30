@@ -14,6 +14,7 @@ public interface IHcmEmployeeReader
         CancellationToken cancellationToken);
 
     Task<EmployeeDto?> GetByEmployeeNumberAsync(string employeeNumber, CancellationToken cancellationToken);
+    Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<EmployeeDto>> GetDueIncrementsAsync(
         DateOnly from,
         DateOnly to,

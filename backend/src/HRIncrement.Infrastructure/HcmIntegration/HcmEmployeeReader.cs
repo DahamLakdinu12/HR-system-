@@ -56,6 +56,20 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
             .SingleOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(
+        CancellationToken cancellationToken)
+    {
+        var departments = await Rows()
+            .GroupBy(x => x.Department == string.Empty ? "Unassigned" : x.Department)
+            .Select(group => new DepartmentSummaryDto(group.Key, group.Count()))
+            .ToListAsync(cancellationToken);
+
+        return departments
+            .OrderBy(x => x.Name == "Unassigned")
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<EmployeeDto>> GetDueIncrementsAsync(
         DateOnly from,
         DateOnly to,

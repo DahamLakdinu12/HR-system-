@@ -18,3 +18,7 @@ public sealed record EmployeeSearchResultDto(
     int Page,
     int PageSize,
     int TotalCount);
+
+public sealed record DepartmentSummaryDto(
+    string Name,
+    int EmployeeCount);

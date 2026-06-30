@@ -22,6 +22,12 @@ public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : Con
         CancellationToken cancellationToken = default) =>
         Ok(await employeeReader.SearchAsync(search, payCode, sortBy, sortDirection, page, pageSize, cancellationToken));
 
+    [HttpGet("departments")]
+    [ProducesResponseType<IReadOnlyList<DepartmentSummaryDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<DepartmentSummaryDto>>> GetDepartments(
+        CancellationToken cancellationToken) =>
+        Ok(await employeeReader.GetDepartmentsAsync(cancellationToken));
+
     [HttpGet("{employeeNumber}")]
     [ProducesResponseType<EmployeeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
