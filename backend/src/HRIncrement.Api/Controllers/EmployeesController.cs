@@ -15,12 +15,13 @@ public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : Con
     public async Task<ActionResult<EmployeeSearchResultDto>> Search(
         [FromQuery] string? search,
         [FromQuery] string? payCode,
+        [FromQuery] string? department,
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDirection,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default) =>
-        Ok(await employeeReader.SearchAsync(search, payCode, sortBy, sortDirection, page, pageSize, cancellationToken));
+        Ok(await employeeReader.SearchAsync(search, payCode, department, sortBy, sortDirection, page, pageSize, cancellationToken));
 
     [HttpGet("departments")]
     [ProducesResponseType<IReadOnlyList<DepartmentSummaryDto>>(StatusCodes.Status200OK)]

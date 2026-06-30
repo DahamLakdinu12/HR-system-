@@ -5,16 +5,17 @@ import { getDepartments, searchEmployees } from '../services/api/employees';
 import { DepartmentSummary, Employee, EmployeeSearchResult } from '../types/employee';
 
 const pageSize = 25;
-type SortField = 'employee' | 'payCode' | 'designation' | 'grade' | 'location' | 'incrementDate' | 'currentSalary';
+type SortField = 'employee' | 'payCode' | 'designation' | 'grade' | 'department' | 'location' | 'incrementDate' | 'currentSalary';
 type SortDirection = 'asc' | 'desc';
 
-const sortFields: SortField[] = ['employee', 'payCode', 'designation', 'grade', 'location', 'incrementDate', 'currentSalary'];
+const sortFields: SortField[] = ['employee', 'payCode', 'designation', 'grade', 'department', 'location', 'incrementDate', 'currentSalary'];
 
 const columnLabels: Record<SortField, string> = {
   employee: 'Employee',
   payCode: 'Pay code',
   designation: 'Designation',
   grade: 'Grade',
+  department: 'Department',
   location: 'Location',
   incrementDate: 'Increment date',
   currentSalary: 'Current salary',
@@ -98,6 +99,8 @@ function getSortValue(employee: Employee, sortField: SortField) {
       return cleanText(employee.designation);
     case 'grade':
       return cleanText(employee.grade);
+    case 'department':
+      return cleanText(employee.department);
     case 'location':
       return cleanText(employee.location);
     case 'incrementDate':
@@ -134,14 +137,22 @@ function sortEmployees(employees: Employee[], sortField: SortField, sortDirectio
 function getExportedEmployeeResult(
   employees: Employee[],
   payCode: string,
+  department: string,
   page: number,
   sortField: SortField,
   sortDirection: SortDirection,
 ): EmployeeSearchResult {
   const normalizedPayCode = payCode.trim().toLowerCase();
-  const items = normalizedPayCode
+  const payCodeMatches = normalizedPayCode
     ? employees.filter((employee) => employee.payCode.toLowerCase().includes(normalizedPayCode))
     : employees;
+  const normalizedDepartment = department.trim().toLowerCase();
+  const items = normalizedDepartment
+    ? payCodeMatches.filter((employee) => {
+        const employeeDepartment = cleanText(employee.department) || 'Unassigned';
+        return employeeDepartment.toLowerCase() === normalizedDepartment;
+      })
+    : payCodeMatches;
   const sortedItems = sortEmployees(items, sortField, sortDirection);
 
   return {
@@ -185,6 +196,7 @@ export function EmployeesPage() {
   const params = new URLSearchParams(location.search);
   const activeTab = params.get('view') === 'departments' ? 'departments' : 'employees';
   const payCode = params.get('payCode') ?? '';
+  const department = params.get('department') ?? '';
   const page = Math.max(1, Number(params.get('page') ?? 1));
   const sortFieldParam = params.get('sort');
   const sortField = sortFields.includes(sortFieldParam as SortField) ? sortFieldParam as SortField : 'employee';
@@ -213,7 +225,14 @@ export function EmployeesPage() {
     setError(null);
     setUsingExport(false);
 
-    searchEmployees({ payCode: payCode || undefined, sortBy: sortField, sortDirection, page, pageSize })
+    searchEmployees({
+      payCode: payCode || undefined,
+      department: department || undefined,
+      sortBy: sortField,
+      sortDirection,
+      page,
+      pageSize,
+    })
       .then((data) => {
         if (!ignore) setResult(data);
       })
@@ -221,7 +240,7 @@ export function EmployeesPage() {
         try {
           const employees = await loadExportedEmployees();
           if (!ignore) {
-            setResult(getExportedEmployeeResult(employees, payCode, page, sortField, sortDirection));
+            setResult(getExportedEmployeeResult(employees, payCode, department, page, sortField, sortDirection));
             setUsingExport(true);
           }
         } catch {
@@ -235,7 +254,7 @@ export function EmployeesPage() {
     return () => {
       ignore = true;
     };
-  }, [page, payCode, refreshKey, sortDirection, sortField]);
+  }, [department, page, payCode, refreshKey, sortDirection, sortField]);
 
   useEffect(() => {
     let ignore = false;
@@ -284,6 +303,7 @@ export function EmployeesPage() {
     nextSortDirection = sortDirection,
   ) => {
     const next = new URLSearchParams();
+    if (department) next.set('department', department);
     if (nextPayCode.trim()) next.set('payCode', nextPayCode.trim());
     if (nextPage > 1) next.set('page', String(nextPage));
     if (nextSortField !== 'employee') next.set('sort', nextSortField);
@@ -310,6 +330,11 @@ export function EmployeesPage() {
     updateRoute(payCodeInput);
   };
 
+  const openDepartment = (departmentName: string) => {
+    const next = new URLSearchParams({ department: departmentName });
+    navigate(`/employees?${next}`);
+  };
+
   return (
     <main className="dashboard module-page employees-page">
       <button className="back-button" onClick={() => navigate('/dashboard')}><ArrowLeft size={16} /> Overview</button>
@@ -317,10 +342,16 @@ export function EmployeesPage() {
       <section className="module-hero employee-hero">
         <div>
           <span className="eyebrow">HCM integration</span>
-          <h1>{activeTab === 'employees' ? 'Employees' : 'Departments'}</h1>
+          <h1>
+            {activeTab === 'departments'
+              ? 'Departments'
+              : (department ? `${department} employees` : 'Employees')}
+          </h1>
           <p>
             {activeTab === 'employees'
-              ? (usingExport ? 'Showing records exported from the restored SQL Server HCM database.' : 'Live employee records from the SQL Server HCM database.')
+              ? (department
+                  ? `Employees assigned to ${department === 'Unassigned' ? 'no recorded department' : department}.`
+                  : (usingExport ? 'Showing records exported from the restored SQL Server HCM database.' : 'Live employee records from the SQL Server HCM database.'))
               : (departmentsUsingExport ? 'Department totals from the exported HCM records.' : 'Live department totals from the SQL Server HCM database.')}
           </p>
         </div>
@@ -367,6 +398,13 @@ export function EmployeesPage() {
           </button>
         </div>
 
+        {department && (
+          <div className="employee-active-filter">
+            <span><Building2 size={15} /> Department: <strong>{department}</strong></span>
+            <button type="button" onClick={() => navigate('/employees')}>Clear filter</button>
+          </div>
+        )}
+
         {error && <div className="employee-message employee-message--error">{error}</div>}
         {loading && <div className="employee-message">Loading HCM employees...</div>}
         {usingExport && !loading && (
@@ -383,6 +421,7 @@ export function EmployeesPage() {
                     {renderSortableHeader('payCode')}
                     {renderSortableHeader('designation')}
                     {renderSortableHeader('grade')}
+                    {renderSortableHeader('department')}
                     {renderSortableHeader('location')}
                     {renderSortableHeader('incrementDate')}
                     {renderSortableHeader('currentSalary')}
@@ -401,6 +440,7 @@ export function EmployeesPage() {
                       <td>{employee.payCode || '-'}</td>
                       <td>{employee.designation || '-'}</td>
                       <td>{employee.grade || '-'}</td>
+                      <td>{employee.department || 'Unassigned'}</td>
                       <td>{employee.location || '-'}</td>
                       <td>{formatDate(employee.incrementDate)}</td>
                       <td><strong>{formatMoney(employee.currentSalary)}</strong></td>
@@ -460,6 +500,7 @@ export function EmployeesPage() {
                       <th>Employees</th>
                       <th>Share of workforce</th>
                       <th>Source</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -469,7 +510,19 @@ export function EmployeesPage() {
                         : 0;
 
                       return (
-                        <tr key={department.name}>
+                        <tr
+                          className="department-row"
+                          key={department.name}
+                          onClick={() => openDepartment(department.name)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              openDepartment(department.name);
+                            }
+                          }}
+                          tabIndex={0}
+                          aria-label={`View employees in ${department.name}`}
+                        >
                           <td>
                             <span className={`department-icon avatar-${index % 4}`}><Building2 size={15} /></span>
                             <span>
@@ -485,6 +538,19 @@ export function EmployeesPage() {
                             </div>
                           </td>
                           <td><span className="status status--ready">{departmentsUsingExport ? 'Export' : 'Live HCM'}</span></td>
+                          <td>
+                            <button
+                              className="department-open"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openDepartment(department.name);
+                              }}
+                              aria-label={`Open ${department.name} employees`}
+                            >
+                              View <ArrowRight size={14} />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}

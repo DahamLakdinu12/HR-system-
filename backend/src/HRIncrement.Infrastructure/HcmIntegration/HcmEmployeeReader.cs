@@ -9,6 +9,7 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
     public async Task<EmployeeSearchResultDto> SearchAsync(
         string? search,
         string? payCode,
+        string? department,
         string? sortBy,
         string? sortDirection,
         int page,
@@ -23,6 +24,14 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
         {
             var payCodeTerm = payCode.Trim();
             query = query.Where(x => x.PayCode.Contains(payCodeTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(department))
+        {
+            var departmentTerm = department.Trim();
+            query = departmentTerm == "Unassigned"
+                ? query.Where(x => x.Department == string.Empty)
+                : query.Where(x => x.Department == departmentTerm);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -125,6 +134,9 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
             "grade" => descending
                 ? query.OrderByDescending(x => x.Grade).ThenBy(x => x.EmployeeNumber)
                 : query.OrderBy(x => x.Grade).ThenBy(x => x.EmployeeNumber),
+            "department" => descending
+                ? query.OrderByDescending(x => x.Department).ThenBy(x => x.EmployeeNumber)
+                : query.OrderBy(x => x.Department).ThenBy(x => x.EmployeeNumber),
             "location" => descending
                 ? query.OrderByDescending(x => x.Location).ThenBy(x => x.EmployeeNumber)
                 : query.OrderBy(x => x.Location).ThenBy(x => x.EmployeeNumber),

@@ -7,6 +7,7 @@ public interface IHcmEmployeeReader
     Task<EmployeeSearchResultDto> SearchAsync(
         string? search,
         string? payCode,
+        string? department,
         string? sortBy,
         string? sortDirection,
         int page,

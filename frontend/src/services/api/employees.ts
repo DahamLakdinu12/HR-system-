@@ -4,6 +4,7 @@ import { DepartmentSummary, Employee, EmployeeSearchResult } from '../../types/e
 type SearchEmployeesParams = {
   search?: string;
   payCode?: string;
+  department?: string;
   sortBy?: string;
   sortDirection?: string;
   page?: number;
