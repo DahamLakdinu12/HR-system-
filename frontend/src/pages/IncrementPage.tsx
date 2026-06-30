@@ -15,6 +15,8 @@ import { useNavigate } from 'react-router-dom';
 import { getDueIncrements } from '../services/api/employees';
 import { AssessmentFormPayload, generateAssessmentForm } from '../services/api/increments';
 import { Employee } from '../types/employee';
+import { useDataSource } from '../context/DataSourceContext';
+import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
 type IncrementPeriod = 'next30' | 'next60' | 'thisMonth';
 
@@ -50,6 +52,9 @@ function parseEmployeeExport(text: string): Employee[] {
         promotionDate,
         incrementDate,
         currentSalary,
+        incrementAmount,
+        stagnationAllowance,
+        salaryScale,
       ] = line.split('|');
 
       return {
@@ -62,8 +67,11 @@ function parseEmployeeExport(text: string): Employee[] {
         location: cleanText(location),
         appointmentDate: cleanText(appointmentDate),
         promotionDate: promotionDate || null,
-        incrementDate: cleanText(incrementDate),
+        incrementDate: cleanText(incrementDate) || null,
         currentSalary: Number(currentSalary),
+        incrementAmount: Number(incrementAmount || 0),
+        stagnationAllowance: Number(stagnationAllowance || 0),
+        salaryScale: cleanText(salaryScale),
       };
     });
 }
@@ -97,14 +105,15 @@ function getPeriodRange(period: IncrementPeriod) {
   };
 }
 
-function getDaysUntil(dateValue: string) {
+function getDaysUntil(dateValue: string | null) {
+  if (!dateValue) return Number.POSITIVE_INFINITY;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dueDate = new Date(`${dateValue}T00:00:00`);
   return Math.ceil((dueDate.getTime() - today.getTime()) / 86_400_000);
 }
 
-function formatDate(value: string) {
+function formatDate(value: string | null) {
   if (!value) return '-';
   return new Intl.DateTimeFormat('en-LK', {
     day: '2-digit',
@@ -123,6 +132,7 @@ function formatMoney(value: number) {
 }
 
 function estimateIncrement(employee: Employee) {
+  if (employee.incrementAmount) return employee.incrementAmount;
   if (!employee.currentSalary) return 0;
   return Math.round(employee.currentSalary * 0.04);
 }
@@ -149,7 +159,7 @@ function filterRows(rows: Employee[], payCode: string) {
 function sortRows(rows: Employee[]) {
   return [...rows].sort(
     (left, right) =>
-      left.incrementDate.localeCompare(right.incrementDate) ||
+      (left.incrementDate ?? '').localeCompare(right.incrementDate ?? '') ||
       getEmployeeName(left).localeCompare(getEmployeeName(right), 'en', { sensitivity: 'base' }),
   );
 }
@@ -164,6 +174,7 @@ function escapeHtml(value: string | number | null | undefined) {
 }
 
 function buildAssessmentPayload(employee: Employee): AssessmentFormPayload {
+  if (!employee.incrementDate) throw new Error('An increment date is required to generate an assessment.');
   const incrementAmount = estimateIncrement(employee);
 
   return {
@@ -180,7 +191,7 @@ function buildAssessmentPayload(employee: Employee): AssessmentFormPayload {
     currentSalary: employee.currentSalary,
     incrementAmount,
     payableSalary: employee.currentSalary + incrementAmount,
-    gazetteReference: 'Government salary gazette',
+    gazetteReference: employee.salaryScale || 'Government salary gazette',
   };
 }
 
@@ -291,6 +302,8 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
 
 export function IncrementPage() {
   const navigate = useNavigate();
+  const { dataSource } = useDataSource();
+  const sourceLabel = getEmployeeDataSourceLabel(dataSource);
   const [period, setPeriod] = useState<IncrementPeriod>('next30');
   const [payCodeInput, setPayCodeInput] = useState('');
   const [activePayCode, setActivePayCode] = useState('');
@@ -323,12 +336,19 @@ export function IncrementPage() {
         setSelectedEmployeeNumber(sortedRows[0]?.employeeNumber ?? null);
       })
       .catch(async () => {
+        if (dataSource !== 'hcm') {
+          if (!ignore) setError('Unable to load increment records from the HR staff database.');
+          return;
+        }
         try {
           const employees = await loadExportedEmployees();
           if (ignore) return;
 
           const exportedRows = sortRows(
-            employees.filter((employee) => employee.incrementDate >= toDateInput(range.from) && employee.incrementDate <= toDateInput(range.to)),
+            employees.filter((employee) =>
+              employee.incrementDate &&
+              employee.incrementDate >= toDateInput(range.from) &&
+              employee.incrementDate <= toDateInput(range.to)),
           );
           setRows(exportedRows);
           setSelectedEmployeeNumber(exportedRows[0]?.employeeNumber ?? null);
@@ -344,7 +364,7 @@ export function IncrementPage() {
     return () => {
       ignore = true;
     };
-  }, [range.from, range.to]);
+  }, [dataSource, range.from, range.to]);
 
   const visibleRows = filterRows(rows, activePayCode);
   const selectedEmployee = visibleRows.find((employee) => employee.employeeNumber === selectedEmployeeNumber) ?? visibleRows[0] ?? null;
@@ -391,7 +411,7 @@ export function IncrementPage() {
         <div>
           <span className="eyebrow">Increment processing</span>
           <h1>Increment page</h1>
-          <p>{usingExport ? 'Processing queue loaded from the exported HCM employee records.' : 'Review upcoming increment records from the HCM database.'}</p>
+          <p>{usingExport ? 'Processing queue loaded from the exported HCM employee records.' : `Review upcoming increment records from the ${sourceLabel} database.`}</p>
         </div>
         <button className="primary-button" onClick={handleGenerateAssessment} disabled={!selectedEmployee || generating}>
           <FileText size={16} /> {generating ? 'Generating...' : 'Generate assessment'}
@@ -402,7 +422,7 @@ export function IncrementPage() {
         <article className="stat-card"><div className="stat-card__icon mint"><Users /></div><div className="stat-card__meta"><span>Employees queued</span><strong>{visibleRows.length}</strong><small>{range.label}</small></div></article>
         <article className="stat-card"><div className="stat-card__icon amber"><CalendarDays /></div><div className="stat-card__meta"><span>Ready in 14 days</span><strong>{readyCount}</strong><small>needs review</small></div></article>
         <article className="stat-card"><div className="stat-card__icon violet"><Calculator /></div><div className="stat-card__meta"><span>Estimated increments</span><strong>{formatMoney(estimatedTotal)}</strong><small>temporary calculation</small></div></article>
-        <article className="stat-card"><div className="stat-card__icon blue"><CheckCircle2 /></div><div className="stat-card__meta"><span>Status</span><strong>{usingExport ? 'Export' : 'Live'}</strong><small>HCM source</small></div></article>
+        <article className="stat-card"><div className="stat-card__icon blue"><CheckCircle2 /></div><div className="stat-card__meta"><span>Status</span><strong>{usingExport ? 'Export' : 'Live'}</strong><small>{sourceLabel} source</small></div></article>
       </section>
 
       <section className="increment-workspace">

@@ -3,6 +3,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getDepartments, searchEmployees } from '../services/api/employees';
 import { DepartmentSummary, Employee, EmployeeSearchResult } from '../types/employee';
+import { useDataSource } from '../context/DataSourceContext';
+import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
 const pageSize = 25;
 type SortField = 'employee' | 'payCode' | 'designation' | 'grade' | 'department' | 'location' | 'incrementDate' | 'currentSalary';
@@ -45,6 +47,9 @@ function parseEmployeeExport(text: string): Employee[] {
         promotionDate,
         incrementDate,
         currentSalary,
+        incrementAmount,
+        stagnationAllowance,
+        salaryScale,
       ] = line.split('|');
 
       return {
@@ -57,8 +62,11 @@ function parseEmployeeExport(text: string): Employee[] {
         location: cleanText(location),
         appointmentDate: cleanText(appointmentDate),
         promotionDate: promotionDate || null,
-        incrementDate: cleanText(incrementDate),
+        incrementDate: cleanText(incrementDate) || null,
         currentSalary: Number(currentSalary),
+        incrementAmount: Number(incrementAmount || 0),
+        stagnationAllowance: Number(stagnationAllowance || 0),
+        salaryScale: cleanText(salaryScale),
       };
     });
 }
@@ -104,7 +112,7 @@ function getSortValue(employee: Employee, sortField: SortField) {
     case 'location':
       return cleanText(employee.location);
     case 'incrementDate':
-      return employee.incrementDate;
+      return employee.incrementDate ?? '';
     case 'currentSalary':
       return employee.currentSalary;
     default:
@@ -163,7 +171,7 @@ function getExportedEmployeeResult(
   };
 }
 
-function formatDate(value: string) {
+function formatDate(value: string | null) {
   if (!value) return '-';
   return new Intl.DateTimeFormat('en-LK', {
     day: '2-digit',
@@ -192,6 +200,8 @@ function initials(employee: Employee) {
 
 export function EmployeesPage() {
   const navigate = useNavigate();
+  const { dataSource } = useDataSource();
+  const sourceLabel = getEmployeeDataSourceLabel(dataSource);
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const activeTab = params.get('view') === 'departments' ? 'departments' : 'employees';
@@ -237,6 +247,10 @@ export function EmployeesPage() {
         if (!ignore) setResult(data);
       })
       .catch(async () => {
+        if (dataSource !== 'hcm') {
+          if (!ignore) setError('Unable to load employee data from the HR staff database.');
+          return;
+        }
         try {
           const employees = await loadExportedEmployees();
           if (!ignore) {
@@ -254,7 +268,7 @@ export function EmployeesPage() {
     return () => {
       ignore = true;
     };
-  }, [department, page, payCode, refreshKey, sortDirection, sortField]);
+  }, [dataSource, department, page, payCode, refreshKey, sortDirection, sortField]);
 
   useEffect(() => {
     let ignore = false;
@@ -267,6 +281,10 @@ export function EmployeesPage() {
         if (!ignore) setDepartments(data);
       })
       .catch(async () => {
+        if (dataSource !== 'hcm') {
+          if (!ignore) setDepartmentsError('Unable to load departments from the HR staff database.');
+          return;
+        }
         try {
           const employees = await loadExportedEmployees();
           if (!ignore) {
@@ -284,7 +302,7 @@ export function EmployeesPage() {
     return () => {
       ignore = true;
     };
-  }, [refreshKey]);
+  }, [dataSource, refreshKey]);
 
   const totalPages = Math.max(1, Math.ceil((result?.totalCount ?? 0) / pageSize));
   const visibleEmployees = sortEmployees(result?.items ?? [], sortField, sortDirection);
@@ -341,7 +359,7 @@ export function EmployeesPage() {
 
       <section className="module-hero employee-hero">
         <div>
-          <span className="eyebrow">HCM integration</span>
+          <span className="eyebrow">{sourceLabel} integration</span>
           <h1>
             {activeTab === 'departments'
               ? 'Departments'
@@ -351,8 +369,8 @@ export function EmployeesPage() {
             {activeTab === 'employees'
               ? (department
                   ? `Employees assigned to ${department === 'Unassigned' ? 'no recorded department' : department}.`
-                  : (usingExport ? 'Showing records exported from the restored SQL Server HCM database.' : 'Live employee records from the SQL Server HCM database.'))
-              : (departmentsUsingExport ? 'Department totals from the exported HCM records.' : 'Live department totals from the SQL Server HCM database.')}
+                  : (usingExport ? 'Showing records exported from the restored SQL Server HCM database.' : `Live employee records from the ${sourceLabel} database.`))
+              : (departmentsUsingExport ? 'Department totals from the exported HCM records.' : `Live department totals from the ${sourceLabel} database.`)}
           </p>
         </div>
         <div className="employee-count">
@@ -527,7 +545,7 @@ export function EmployeesPage() {
                             <span className={`department-icon avatar-${index % 4}`}><Building2 size={15} /></span>
                             <span>
                               <strong>{department.name}</strong>
-                              <small>{department.name === 'Unassigned' ? 'No department recorded' : 'HCM department'}</small>
+                              <small>{department.name === 'Unassigned' ? 'No department recorded' : `${sourceLabel} department`}</small>
                             </span>
                           </td>
                           <td><strong>{department.employeeCount.toLocaleString('en-LK')}</strong></td>
@@ -537,7 +555,7 @@ export function EmployeesPage() {
                               <strong>{share}%</strong>
                             </div>
                           </td>
-                          <td><span className="status status--ready">{departmentsUsingExport ? 'Export' : 'Live HCM'}</span></td>
+                          <td><span className="status status--ready">{departmentsUsingExport ? 'Export' : sourceLabel}</span></td>
                           <td>
                             <button
                               className="department-open"

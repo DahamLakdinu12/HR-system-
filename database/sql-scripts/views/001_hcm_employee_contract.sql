@@ -51,7 +51,10 @@ SELECT
                 THEN DATEADD(year, DATEDIFF(year, e.DateOfAppointment, GETDATE()) + 1, e.DateOfAppointment)
             ELSE DATEADD(year, DATEDIFF(year, e.DateOfAppointment, GETDATE()), e.DateOfAppointment)
         END) AS IncrementDate,
-    CAST(COALESCE(NULLIF(e.NewSalary, 0), NULLIF(e.Salary, 0), 0) AS decimal(19, 4)) AS CurrentSalary
+    CAST(COALESCE(NULLIF(e.NewSalary, 0), NULLIF(e.Salary, 0), 0) AS decimal(19, 4)) AS CurrentSalary,
+    CAST(0 AS decimal(19, 4)) AS IncrementAmount,
+    CAST(0 AS decimal(19, 4)) AS StagnationAllowance,
+    CAST('' AS varchar(300)) AS SalaryScale
 FROM dbo.MI_Employer_Employee AS e
 LEFT JOIN dbo.View_EmployeeDet AS details ON details.Number = e.Number
 LEFT JOIN dbo.Designation AS des ON des.DesignationCode = e.DesignationCode

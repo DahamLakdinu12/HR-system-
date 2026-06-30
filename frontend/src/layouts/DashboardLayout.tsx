@@ -1,5 +1,5 @@
 import {
-  ArrowRight, Bell, ChevronDown, CircleCheck, ClipboardCheck, FileText,
+  ArrowRight, Bell, ChevronDown, CircleCheck, ClipboardCheck, Database, FileText,
   HelpCircle, LayoutDashboard, LogOut, Menu, Search, Settings, TrendingUp,
   UserRound, Users, WalletCards, X,
 } from 'lucide-react';
@@ -7,6 +7,8 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
+import { useDataSource } from '../context/DataSourceContext';
+import { EmployeeDataSource, employeeDataSources } from '../constants/dataSources';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
@@ -20,6 +22,7 @@ const navItems = [
 
 export function DashboardLayout() {
   const { logout } = useAuth();
+  const { dataSource, setDataSource } = useDataSource();
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -83,6 +86,20 @@ export function DashboardLayout() {
             <Search size={18} /><input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search employees, assessments..." aria-label="Search" /><kbd>⌘ K</kbd>
           </form>
           <div className="topbar__actions">
+            <label className="data-source-selector">
+              <Database size={16} />
+              <span>Data source</span>
+              <select
+                value={dataSource}
+                onChange={(event) => setDataSource(event.target.value as EmployeeDataSource)}
+                aria-label="Employee data source"
+              >
+                {employeeDataSources.map((source) => (
+                  <option value={source.value} key={source.value}>{source.label}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} />
+            </label>
             <div className="action-menu">
               <button className="icon-button" onClick={() => { setNotificationsOpen(!notificationsOpen); setProfileOpen(false); }} aria-label="Notifications"><Bell size={20} /><i /></button>
               {notificationsOpen && <div className="popover notification-popover"><strong>Notifications</strong><p>5 assessments need your approval.</p><button onClick={() => navigate('/approvals')}>Review approvals <ArrowRight size={14} /></button></div>}
@@ -94,7 +111,7 @@ export function DashboardLayout() {
             </div>
           </div>
         </header>
-        <Outlet />
+        <Outlet key={dataSource} />
       </div>
     </div>
   );

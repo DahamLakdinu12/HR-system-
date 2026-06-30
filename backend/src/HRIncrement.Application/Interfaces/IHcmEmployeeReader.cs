@@ -5,6 +5,7 @@ namespace HRIncrement.Application.Interfaces;
 public interface IHcmEmployeeReader
 {
     Task<EmployeeSearchResultDto> SearchAsync(
+        EmployeeDataSource dataSource,
         string? search,
         string? payCode,
         string? department,
@@ -14,9 +15,15 @@ public interface IHcmEmployeeReader
         int pageSize,
         CancellationToken cancellationToken);
 
-    Task<EmployeeDto?> GetByEmployeeNumberAsync(string employeeNumber, CancellationToken cancellationToken);
-    Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(CancellationToken cancellationToken);
+    Task<EmployeeDto?> GetByEmployeeNumberAsync(
+        EmployeeDataSource dataSource,
+        string employeeNumber,
+        CancellationToken cancellationToken);
+    Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(
+        EmployeeDataSource dataSource,
+        CancellationToken cancellationToken);
     Task<IReadOnlyList<EmployeeDto>> GetDueIncrementsAsync(
+        EmployeeDataSource dataSource,
         DateOnly from,
         DateOnly to,
         int page,

@@ -17,6 +17,12 @@ HCM_BACKUP_DIR=/absolute/path/to/HCM
 
 The `.env` file and HCM backup are excluded from Git.
 
+The approved HR workbook path is also configured in `.env`:
+
+```dotenv
+HR_STAFF_WORKBOOK=/absolute/path/to/approved-hr-staff.xlsx
+```
+
 ## Start the System
 
 Open Docker Desktop, then open three Terminal windows.
@@ -75,6 +81,31 @@ Open the application:
 ```text
 http://localhost:5173
 ```
+
+Use the **Data source** selector in the top bar to choose:
+
+- **HR staff database**: the approved HR spreadsheet imported into `HRStaff`.
+- **HCM database**: live records from the restored vendor `HCM8` database.
+
+The selection is saved in the browser and applies to the dashboard, employees,
+departments, increment queues, and generated assessment data.
+
+## Reimport the Approved HR Workbook
+
+Install the importer dependency once:
+
+```bash
+python3 -m pip install -r database/scripts/requirements.txt
+```
+
+After updating `HR_STAFF_WORKBOOK` in `.env`, rebuild the `HRStaff` database:
+
+```bash
+database/scripts/import_hr_staff.sh
+```
+
+This recreates only the `HRStaff` employee table and view. It does not modify
+the original workbook or the `HCM8` database.
 
 ## Confirm Live HCM Data
 

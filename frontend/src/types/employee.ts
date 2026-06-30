@@ -8,8 +8,11 @@ export type Employee = {
   location: string;
   appointmentDate: string;
   promotionDate: string | null;
-  incrementDate: string;
+  incrementDate: string | null;
   currentSalary: number;
+  incrementAmount: number;
+  stagnationAllowance: number;
+  salaryScale: string;
 };
 
 export type EmployeeSearchResult = {

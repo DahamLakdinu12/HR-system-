@@ -6,6 +6,7 @@ import App from './app/App';
 import { theme } from './app/theme';
 import './assets/styles/global.css';
 import { AuthProvider } from './context/AuthContext';
+import { DataSourceProvider } from './context/DataSourceContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')!).render(
       <CssBaseline />
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          <DataSourceProvider>
+            <App />
+          </DataSourceProvider>
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

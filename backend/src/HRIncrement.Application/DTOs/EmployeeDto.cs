@@ -10,8 +10,11 @@ public sealed record EmployeeDto(
     string Location,
     DateOnly AppointmentDate,
     DateOnly? PromotionDate,
-    DateOnly IncrementDate,
-    decimal CurrentSalary);
+    DateOnly? IncrementDate,
+    decimal CurrentSalary,
+    decimal IncrementAmount,
+    decimal StagnationAllowance,
+    string SalaryScale);
 
 public sealed record EmployeeSearchResultDto(
     IReadOnlyList<EmployeeDto> Items,
@@ -22,3 +25,9 @@ public sealed record EmployeeSearchResultDto(
 public sealed record DepartmentSummaryDto(
     string Name,
     int EmployeeCount);
+
+public enum EmployeeDataSource
+{
+    Hcm,
+    HrStaff
+}

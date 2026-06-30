@@ -10,6 +10,8 @@ namespace HRIncrement.Api.Controllers;
 [Authorize(Policy = "CanReadEmployees")]
 public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : ControllerBase
 {
+    private const string DataSourceHeader = "X-Employee-Data-Source";
+
     [HttpGet]
     [ProducesResponseType<EmployeeSearchResultDto>(StatusCodes.Status200OK)]
     public async Task<ActionResult<EmployeeSearchResultDto>> Search(
@@ -20,23 +22,29 @@ public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : Con
         [FromQuery] string? sortDirection,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
+        [FromHeader(Name = DataSourceHeader)] string? dataSource = null,
         CancellationToken cancellationToken = default) =>
-        Ok(await employeeReader.SearchAsync(search, payCode, department, sortBy, sortDirection, page, pageSize, cancellationToken));
+        Ok(await employeeReader.SearchAsync(ParseDataSource(dataSource), search, payCode, department, sortBy, sortDirection, page, pageSize, cancellationToken));
 
     [HttpGet("departments")]
     [ProducesResponseType<IReadOnlyList<DepartmentSummaryDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DepartmentSummaryDto>>> GetDepartments(
+        [FromHeader(Name = DataSourceHeader)] string? dataSource,
         CancellationToken cancellationToken) =>
-        Ok(await employeeReader.GetDepartmentsAsync(cancellationToken));
+        Ok(await employeeReader.GetDepartmentsAsync(ParseDataSource(dataSource), cancellationToken));
 
     [HttpGet("{employeeNumber}")]
     [ProducesResponseType<EmployeeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EmployeeDto>> GetByEmployeeNumber(
         string employeeNumber,
+        [FromHeader(Name = DataSourceHeader)] string? dataSource,
         CancellationToken cancellationToken)
     {
-        var employee = await employeeReader.GetByEmployeeNumberAsync(employeeNumber, cancellationToken);
+        var employee = await employeeReader.GetByEmployeeNumberAsync(
+            ParseDataSource(dataSource),
+            employeeNumber,
+            cancellationToken);
         return employee is null ? NotFound() : Ok(employee);
     }
 
@@ -46,6 +54,12 @@ public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : Con
         [FromQuery] DateOnly to,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
+        [FromHeader(Name = DataSourceHeader)] string? dataSource = null,
         CancellationToken cancellationToken = default) =>
-        Ok(await employeeReader.GetDueIncrementsAsync(from, to, page, pageSize, cancellationToken));
+        Ok(await employeeReader.GetDueIncrementsAsync(ParseDataSource(dataSource), from, to, page, pageSize, cancellationToken));
+
+    private static EmployeeDataSource ParseDataSource(string? value) =>
+        string.Equals(value, "hcm", StringComparison.OrdinalIgnoreCase)
+            ? EmployeeDataSource.Hcm
+            : EmployeeDataSource.HrStaff;
 }

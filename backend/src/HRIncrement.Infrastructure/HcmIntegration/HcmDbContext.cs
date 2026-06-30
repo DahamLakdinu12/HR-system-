@@ -7,6 +7,9 @@ internal sealed class HcmDbContext(DbContextOptions<HcmDbContext> options) : DbC
     public DbSet<HcmEmployeeRow> Employees => Set<HcmEmployeeRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => ConfigureEmployeeView(modelBuilder);
+
+    internal static void ConfigureEmployeeView(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<HcmEmployeeRow>(builder =>
         {
@@ -14,8 +17,18 @@ internal sealed class HcmDbContext(DbContextOptions<HcmDbContext> options) : DbC
             builder.ToView("vw_HRIncrementEmployees");
             builder.Property(x => x.EmployeeNumber).HasColumnName("EmployeeNumber");
             builder.Property(x => x.CurrentSalary).HasPrecision(19, 4);
+            builder.Property(x => x.IncrementAmount).HasPrecision(19, 4);
+            builder.Property(x => x.StagnationAllowance).HasPrecision(19, 4);
         });
     }
+}
+
+internal sealed class HrStaffDbContext(DbContextOptions<HrStaffDbContext> options) : DbContext(options)
+{
+    public DbSet<HcmEmployeeRow> Employees => Set<HcmEmployeeRow>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => HcmDbContext.ConfigureEmployeeView(modelBuilder);
 }
 
 internal sealed class HcmEmployeeRow
@@ -29,6 +42,9 @@ internal sealed class HcmEmployeeRow
     public string Location { get; init; } = string.Empty;
     public DateOnly AppointmentDate { get; init; }
     public DateOnly? PromotionDate { get; init; }
-    public DateOnly IncrementDate { get; init; }
+    public DateOnly? IncrementDate { get; init; }
     public decimal CurrentSalary { get; init; }
+    public decimal IncrementAmount { get; init; }
+    public decimal StagnationAllowance { get; init; }
+    public string SalaryScale { get; init; } = string.Empty;
 }

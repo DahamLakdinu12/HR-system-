@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDueIncrements, searchEmployees } from '../services/api/employees';
 import { Employee } from '../types/employee';
+import { useDataSource } from '../context/DataSourceContext';
+import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
 type OverviewTab = 'summary' | 'upcoming';
 
@@ -13,7 +15,8 @@ function toDateInput(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function formatDate(value: string) {
+function formatDate(value: string | null) {
+  if (!value) return '-';
   return new Intl.DateTimeFormat('en-LK', {
     day: '2-digit',
     month: 'short',
@@ -49,6 +52,9 @@ function parseEmployeeExport(text: string): Employee[] {
         promotionDate,
         incrementDate,
         currentSalary,
+        incrementAmount,
+        stagnationAllowance,
+        salaryScale,
       ] = line.split('|');
 
       return {
@@ -61,8 +67,11 @@ function parseEmployeeExport(text: string): Employee[] {
         location: cleanText(location),
         appointmentDate: cleanText(appointmentDate),
         promotionDate: promotionDate || null,
-        incrementDate: cleanText(incrementDate),
+        incrementDate: cleanText(incrementDate) || null,
         currentSalary: Number(currentSalary),
+        incrementAmount: Number(incrementAmount || 0),
+        stagnationAllowance: Number(stagnationAllowance || 0),
+        salaryScale: cleanText(salaryScale),
       };
     });
 }
@@ -78,11 +87,12 @@ function getEmployeesDueBetween(employees: Employee[], from: Date, to: Date) {
   const toValue = toDateInput(to);
 
   return employees
-    .filter((employee) => employee.incrementDate >= fromValue && employee.incrementDate <= toValue)
-    .sort((left, right) => left.incrementDate.localeCompare(right.incrementDate) || getEmployeeName(left).localeCompare(getEmployeeName(right)));
+    .filter((employee) => employee.incrementDate && employee.incrementDate >= fromValue && employee.incrementDate <= toValue)
+    .sort((left, right) => (left.incrementDate ?? '').localeCompare(right.incrementDate ?? '') || getEmployeeName(left).localeCompare(getEmployeeName(right)));
 }
 
-function getDaysUntil(dateValue: string) {
+function getDaysUntil(dateValue: string | null) {
+  if (!dateValue) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dueDate = new Date(`${dateValue}T00:00:00`);
@@ -100,6 +110,8 @@ function initials(employee: Employee) {
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { dataSource } = useDataSource();
+  const sourceLabel = getEmployeeDataSourceLabel(dataSource);
   const [activeTab, setActiveTab] = useState<OverviewTab>('summary');
   const [period, setPeriod] = useState('This month');
   const [totalEmployees, setTotalEmployees] = useState<number | null>(null);
@@ -119,6 +131,10 @@ export function DashboardPage() {
     searchEmployees({ page: 1, pageSize: 1 })
       .then((data) => setTotalEmployees(data.totalCount))
       .catch(async () => {
+        if (dataSource !== 'hcm') {
+          setTotalEmployees(null);
+          return;
+        }
         try {
           const employees = await loadExportedEmployees();
           setTotalEmployees(employees.length);
@@ -160,7 +176,7 @@ export function DashboardPage() {
         setUsingExport(false);
       })
       .catch(() => undefined);
-  }, []);
+  }, [dataSource]);
 
   return (
     <main className="dashboard">
@@ -170,7 +186,7 @@ export function DashboardPage() {
       </section>
 
       <section className="stat-grid">
-        <article className="stat-card"><div className="stat-card__icon mint"><Users /></div><div className="stat-card__meta"><span>Total employees</span><strong>{totalEmployees?.toLocaleString('en-LK') ?? '...'}</strong><small>from restored HCM</small></div><button onClick={() => navigate('/employees')} aria-label="View employees">•••</button></article>
+        <article className="stat-card"><div className="stat-card__icon mint"><Users /></div><div className="stat-card__meta"><span>Total employees</span><strong>{totalEmployees?.toLocaleString('en-LK') ?? '...'}</strong><small>from {sourceLabel}</small></div><button onClick={() => navigate('/employees')} aria-label="View employees">•••</button></article>
         <article className="stat-card"><div className="stat-card__icon amber"><CalendarDays /></div><div className="stat-card__meta"><span>Due this month</span><strong>{dueThisMonth.length}</strong><small><b>{upcomingIncrements.length}</b> in next 14 days</small></div><button onClick={() => navigate('/employees')} aria-label="View due increments">•••</button></article>
         <article className="stat-card"><div className="stat-card__icon violet"><ClipboardCheck /></div><div className="stat-card__meta"><span>Awaiting approval</span><strong>27</strong><small><b>5</b> overdue</small></div><button onClick={() => navigate('/approvals')} aria-label="View approvals">•••</button></article>
         <article className="stat-card"><div className="stat-card__icon blue"><CircleCheck /></div><div className="stat-card__meta"><span>Completed</span><strong>156</strong><small className="positive">↑ 18 <em>this month</em></small></div><button onClick={() => navigate('/reports')} aria-label="View reports">•••</button></article>
@@ -192,7 +208,7 @@ export function DashboardPage() {
             <article className="panel increments-panel">
               <div className="panel__header"><div><h2>Upcoming increments</h2><p>Employees scheduled in the next 14 days</p></div><button className="text-button" onClick={() => setActiveTab('upcoming')}>Open tab <ArrowRight size={16} /></button></div>
               <div className="table-wrap"><table><thead><tr><th>Employee</th><th>Department</th><th>Due date</th><th>Increment</th><th>Status</th><th /></tr></thead><tbody>
-                {upcomingIncrements.map((row, index) => <tr key={row.employeeNumber}><td><span className={`table-avatar avatar-${index}`}>{initials(row)}</span><span><strong>{getEmployeeName(row)}</strong><small>{row.employeeNumber}</small></span></td><td>{row.department || row.location || '-'}</td><td>{formatDate(row.incrementDate)}</td><td><strong>Pending gazette</strong></td><td><span className="status status--ready">HCM</span></td><td><button className="more-button" onClick={() => navigate(`/employees?payCode=${row.payCode || row.employeeNumber}`)} aria-label={`Open ${getEmployeeName(row)}`}>•••</button></td></tr>)}
+                {upcomingIncrements.map((row, index) => <tr key={row.employeeNumber}><td><span className={`table-avatar avatar-${index}`}>{initials(row)}</span><span><strong>{getEmployeeName(row)}</strong><small>{row.employeeNumber}</small></span></td><td>{row.department || row.location || '-'}</td><td>{formatDate(row.incrementDate)}</td><td><strong>Pending gazette</strong></td><td><span className="status status--ready">{sourceLabel}</span></td><td><button className="more-button" onClick={() => navigate(`/employees?payCode=${row.payCode || row.employeeNumber}`)} aria-label={`Open ${getEmployeeName(row)}`}>•••</button></td></tr>)}
                 {upcomingIncrements.length === 0 && <tr><td colSpan={6}>No increments due in the next 14 days.</td></tr>}
               </tbody></table></div>
             </article>
@@ -203,7 +219,7 @@ export function DashboardPage() {
                 <div className="activity"><span className="activity__icon mint"><CircleCheck size={17} /></span><div><p><strong>You approved</strong> 8 increment assessments</p><small>12 minutes ago</small></div></div>
                 <div className="activity"><span className="activity__icon violet"><FileText size={17} /></span><div><p><strong>Ruwan Jayasinghe</strong> generated an assessment form</p><small>1 hour ago</small></div></div>
                 <div className="activity"><span className="activity__icon amber"><Clock3 size={17} /></span><div><p><strong>5 assessments</strong> were submitted for your review</p><small>3 hours ago</small></div></div>
-                <div className="activity"><span className="activity__icon blue"><Users size={17} /></span><div><p>HCM employee data sync completed successfully</p><small>Yesterday, 4:35 PM</small></div></div>
+                <div className="activity"><span className="activity__icon blue"><Users size={17} /></span><div><p>{sourceLabel} employee data loaded successfully</p><small>Current session</small></div></div>
               </div>
               <button className="activity-footer" onClick={() => navigate('/audit-logs')}>View activity log <ArrowRight size={15} /></button>
             </article>
@@ -221,7 +237,7 @@ export function DashboardPage() {
           <div className="panel__header">
             <div>
               <h2>Upcoming increment</h2>
-              <p>{usingExport ? 'Showing upcoming increment dates from the exported HCM records.' : 'Employees scheduled for increment processing in the next 60 days.'}</p>
+              <p>{usingExport ? 'Showing upcoming increment dates from the exported HCM records.' : `Employees scheduled from ${sourceLabel} in the next 60 days.`}</p>
             </div>
             <button className="text-button" onClick={() => navigate('/employees')}>Open employees <ArrowRight size={16} /></button>
           </div>
@@ -240,7 +256,7 @@ export function DashboardPage() {
                       <td>{row.designation || '-'}</td>
                       <td>{row.location || row.department || '-'}</td>
                       <td>{formatDate(row.incrementDate)}</td>
-                      <td><strong>{daysLeft <= 0 ? 'Due today' : `${daysLeft} days`}</strong></td>
+                      <td><strong>{daysLeft === null ? '-' : (daysLeft <= 0 ? 'Due today' : `${daysLeft} days`)}</strong></td>
                       <td><span className="status status--ready">Ready</span></td>
                       <td><button className="more-button" onClick={() => navigate(`/employees?payCode=${row.payCode || row.employeeNumber}`)} aria-label={`Open ${getEmployeeName(row)}`}>•••</button></td>
                     </tr>
