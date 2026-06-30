@@ -3,7 +3,7 @@ import axios from 'axios';
 const tokenKey = 'hr-increment.access-token';
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'https://localhost:7180/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5180/api/v1',
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
 });

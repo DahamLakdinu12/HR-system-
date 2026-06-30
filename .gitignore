@@ -11,6 +11,7 @@ frontend/.env.local
 
 # Local HCM database backups
 /HCM/
+/.env
 
 # Local configuration and tooling
 .DS_Store

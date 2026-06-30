@@ -18,7 +18,7 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        var query = Project();
+        var query = Rows();
         if (!string.IsNullOrWhiteSpace(payCode))
         {
             var payCodeTerm = payCode.Trim();
@@ -41,9 +41,9 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
         var totalCount = await query.CountAsync(cancellationToken);
         query = ApplySorting(query, sortBy, sortDirection);
 
-        var items = await query
+        var items = await Project(query
             .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Take(pageSize))
             .ToListAsync(cancellationToken);
 
         return new EmployeeSearchResultDto(items, page, pageSize, totalCount);
@@ -52,7 +52,8 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
     public Task<EmployeeDto?> GetByEmployeeNumberAsync(string employeeNumber, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(employeeNumber);
-        return Project().SingleOrDefaultAsync(x => x.EmployeeNumber == employeeNumber, cancellationToken);
+        return Project(Rows().Where(x => x.EmployeeNumber == employeeNumber))
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<EmployeeDto>> GetDueIncrementsAsync(
@@ -66,17 +67,18 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        return await Project()
+        return await Project(Rows()
             .Where(x => x.IncrementDate >= from && x.IncrementDate <= to)
             .OrderBy(x => x.IncrementDate)
             .ThenBy(x => x.EmployeeNumber)
             .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Take(pageSize))
             .ToListAsync(cancellationToken);
     }
 
-    private IQueryable<EmployeeDto> Project() => dbContext.Employees
-        .AsNoTracking()
+    private IQueryable<HcmEmployeeRow> Rows() => dbContext.Employees.AsNoTracking();
+
+    private static IQueryable<EmployeeDto> Project(IQueryable<HcmEmployeeRow> query) => query
         .Select(x => new EmployeeDto(
             x.EmployeeNumber,
             x.PayCode,
@@ -90,8 +92,8 @@ internal sealed class HcmEmployeeReader(HcmDbContext dbContext) : IHcmEmployeeRe
             x.IncrementDate,
             x.CurrentSalary));
 
-    private static IQueryable<EmployeeDto> ApplySorting(
-        IQueryable<EmployeeDto> query,
+    private static IQueryable<HcmEmployeeRow> ApplySorting(
+        IQueryable<HcmEmployeeRow> query,
         string? sortBy,
         string? sortDirection)
     {

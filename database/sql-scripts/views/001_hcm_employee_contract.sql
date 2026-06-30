@@ -6,29 +6,39 @@
 */
 CREATE OR ALTER VIEW dbo.vw_HRIncrementEmployees
 AS
-WITH MasterData AS
-(
-    SELECT
-        *,
-        ROW_NUMBER() OVER (PARTITION BY Number ORDER BY Number) AS RowNumber
-    FROM dbo.EmployeeMasterData
-)
 SELECT
     LTRIM(RTRIM(e.Number)) AS EmployeeNumber,
     COALESCE(NULLIF(LTRIM(RTRIM(e.EPFNo)), ''), LTRIM(RTRIM(e.Number))) AS PayCode,
     COALESCE(
-        NULLIF(NULLIF(LTRIM(RTRIM(e.FullName)), ''), 'n/a'),
-        NULLIF(NULLIF(LTRIM(RTRIM(CONCAT(e.Forenames, ' ', e.Surname))), ''), 'n/a'),
-        NULLIF(NULLIF(LTRIM(RTRIM(m.FullName)), ''), 'n/a'),
+        NULLIF(LTRIM(RTRIM(
+            CASE
+                WHEN LOWER(LTRIM(RTRIM(e.FullName))) LIKE 'n/a %'
+                    THEN SUBSTRING(LTRIM(RTRIM(e.FullName)), 5, 4000)
+                WHEN LOWER(LTRIM(RTRIM(e.FullName))) IN ('n/a', 'na')
+                    THEN ''
+                ELSE e.FullName
+            END)), ''),
+        NULLIF(LTRIM(RTRIM(CONCAT(
+            CASE
+                WHEN LOWER(LTRIM(RTRIM(e.Forenames))) IN ('n/a', 'na') THEN ''
+                ELSE e.Forenames
+            END,
+            ' ',
+            e.Surname))), ''),
         LTRIM(RTRIM(e.Number))) AS FullName,
     COALESCE(
         NULLIF(LTRIM(RTRIM(des.DesignationName)), ''),
-        NULLIF(LTRIM(RTRIM(m.DesignationName)), ''),
         NULLIF(LTRIM(RTRIM(e.JobTitle)), ''),
         '') AS Designation,
-    COALESCE(NULLIF(LTRIM(RTRIM(g.GradeName)), ''), NULLIF(LTRIM(RTRIM(m.GradeName)), ''), '') AS Grade,
-    COALESCE(NULLIF(LTRIM(RTRIM(d.DepartmentName)), ''), NULLIF(LTRIM(RTRIM(m.CostCenter)), ''), '') AS Department,
-    COALESCE(NULLIF(LTRIM(RTRIM(m.Company)), ''), NULLIF(LTRIM(RTRIM(loc.LocationName)), ''), '') AS Location,
+    COALESCE(NULLIF(LTRIM(RTRIM(g.GradeName)), ''), '') AS Grade,
+    COALESCE(
+        NULLIF(LTRIM(RTRIM(org4.Name)), ''),
+        NULLIF(LTRIM(RTRIM(d.DepartmentName)), ''),
+        '') AS Department,
+    COALESCE(
+        NULLIF(LTRIM(RTRIM(org2.Name)), ''),
+        NULLIF(LTRIM(RTRIM(loc.LocationName)), ''),
+        '') AS Location,
     CONVERT(date, CASE WHEN e.DateOfAppointment < '19000101' THEN GETDATE() ELSE e.DateOfAppointment END) AS AppointmentDate,
     (
         SELECT MAX(CONVERT(date, p.DatePromoted))
@@ -43,13 +53,14 @@ SELECT
                 THEN DATEADD(year, DATEDIFF(year, e.DateOfAppointment, GETDATE()) + 1, e.DateOfAppointment)
             ELSE DATEADD(year, DATEDIFF(year, e.DateOfAppointment, GETDATE()), e.DateOfAppointment)
         END) AS IncrementDate,
-    CAST(COALESCE(NULLIF(e.NewSalary, 0), NULLIF(e.Salary, 0), NULLIF(m.Salary, 0), 0) AS decimal(19, 4)) AS CurrentSalary
+    CAST(COALESCE(NULLIF(e.NewSalary, 0), NULLIF(e.Salary, 0), 0) AS decimal(19, 4)) AS CurrentSalary
 FROM dbo.MI_Employer_Employee AS e
-LEFT JOIN MasterData AS m ON m.Number = e.Number AND m.RowNumber = 1
 LEFT JOIN dbo.Designation AS des ON des.DesignationCode = e.DesignationCode
 LEFT JOIN dbo.Grade AS g ON g.GradeCode = e.GradeCode
 LEFT JOIN dbo.Department AS d ON d.DepartmentCode = e.DepartmentCode
 LEFT JOIN dbo.Location AS loc ON loc.LocationCode = e.Location
+LEFT JOIN dbo.MI_eprf_hrOrgLevel2 AS org2 ON org2.Level2Code = e.Level2Code
+LEFT JOIN dbo.MI_eprf_hrOrgLevel4 AS org4 ON org4.Level4Code = e.Level4Code
 WHERE e.Deleted = 0
   AND e.Status = 1
   AND NULLIF(LTRIM(RTRIM(e.Number)), '') IS NOT NULL;
