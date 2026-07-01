@@ -11,7 +11,6 @@ import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
 type OverviewTab = 'summary' | 'upcoming';
-type ProgressPeriod = 'thisMonth' | 'lastMonth' | 'thisQuarter';
 
 type ProgressSummary = {
   completed: number;
@@ -20,6 +19,11 @@ type ProgressSummary = {
   notStarted: number;
   total: number;
 };
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 function toDateInput(date: Date) {
   const year = date.getFullYear();
@@ -125,27 +129,12 @@ function initials(employee: Employee) {
     .join('') || 'HR';
 }
 
-function getProgressRange(period: ProgressPeriod) {
-  const today = new Date();
-  if (period === 'lastMonth') {
-    return {
-      from: new Date(today.getFullYear(), today.getMonth() - 1, 1),
-      to: new Date(today.getFullYear(), today.getMonth(), 0),
-      label: 'Last month',
-    };
-  }
-  if (period === 'thisQuarter') {
-    const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
-    return {
-      from: new Date(today.getFullYear(), quarterStartMonth, 1),
-      to: new Date(today.getFullYear(), quarterStartMonth + 3, 0),
-      label: 'This quarter',
-    };
-  }
+function getProgressRange(month: number) {
+  const year = new Date().getFullYear();
   return {
-    from: new Date(today.getFullYear(), today.getMonth(), 1),
-    to: new Date(today.getFullYear(), today.getMonth() + 1, 0),
-    label: 'This month',
+    from: new Date(year, month, 1),
+    to: new Date(year, month + 1, 0),
+    label: `${MONTHS[month]} ${year}`,
   };
 }
 
@@ -154,7 +143,7 @@ export function DashboardPage() {
   const { dataSource } = useDataSource();
   const sourceLabel = getEmployeeDataSourceLabel(dataSource);
   const [activeTab, setActiveTab] = useState<OverviewTab>('summary');
-  const [period, setPeriod] = useState<ProgressPeriod>('thisMonth');
+  const [progressMonth, setProgressMonth] = useState(() => new Date().getMonth());
   const [progress, setProgress] = useState<ProgressSummary>({
     completed: 0,
     inReview: 0,
@@ -228,7 +217,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     let ignore = false;
-    const range = getProgressRange(period);
+    const range = getProgressRange(progressMonth);
 
     const loadProgress = async () => {
       try {
@@ -293,7 +282,7 @@ export function DashboardPage() {
       ignore = true;
       window.removeEventListener('increment-workflow-updated', loadProgress);
     };
-  }, [dataSource, period]);
+  }, [dataSource, progressMonth]);
 
   const completionPercent = progress.total
     ? Math.round((progress.completed / progress.total) * 100)
@@ -301,7 +290,7 @@ export function DashboardPage() {
   const reviewPercent = progress.total
     ? (progress.inReview / progress.total) * 100
     : 0;
-  const periodLabel = getProgressRange(period).label;
+  const periodLabel = getProgressRange(progressMonth).label;
 
   return (
     <main className="dashboard">
@@ -318,7 +307,7 @@ export function DashboardPage() {
       </section>
 
       <section className="panel progress-panel">
-        <div className="panel__header"><div><h2>Increment progress</h2><p>{progress.total} employees scheduled for this cycle</p></div><label className="filter-button"><SlidersHorizontal size={16} /><select value={period} onChange={(event) => setPeriod(event.target.value as ProgressPeriod)} aria-label="Progress period"><option value="thisMonth">This month</option><option value="lastMonth">Last month</option><option value="thisQuarter">This quarter</option></select><ChevronDown size={14} /></label></div>
+        <div className="panel__header"><div><h2>Increment progress</h2><p>{progress.total} employees scheduled for this cycle</p></div><label className="filter-button"><SlidersHorizontal size={16} /><select value={progressMonth} onChange={(event) => setProgressMonth(Number(event.target.value))} aria-label="Progress month">{MONTHS.map((month, index) => <option key={month} value={index}>{month}</option>)}</select><ChevronDown size={14} /></label></div>
         <div className="progress-content"><div className="progress-stat"><strong>{completionPercent}%</strong><span>{periodLabel} completion</span></div><div className="progress-details"><div className="progress-bar"><span className="progress-bar__completed" style={{ width: `${completionPercent}%` }} /><span className="progress-bar__review" style={{ width: `${reviewPercent}%` }} /></div><div className="progress-legend"><span><i className="dot green" />{progress.completed} completed</span><span><i className="dot gold" />{progress.inReview} in review</span><span><i className="dot gray" />{progress.notStarted} not started</span><b>{progress.completed} of {progress.total}</b></div></div></div>
       </section>
 
