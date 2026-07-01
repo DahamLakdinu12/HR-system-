@@ -557,9 +557,6 @@ export function IncrementPage() {
           <h1>Increment page</h1>
           <p>{usingExport ? 'Processing queue loaded from the exported HCM employee records.' : `Review upcoming increment records from the ${sourceLabel} database.`}</p>
         </div>
-        <button className="primary-button" onClick={handleGenerateAssessment} disabled={!selectedEmployee || generating || !canGenerateAssessment(selectedEmployee)}>
-          <FileText size={16} /> {generating ? 'Generating...' : 'Generate assessment'}
-        </button>
       </section>
 
       <section className="stat-grid increment-stat-grid">
