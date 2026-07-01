@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
+  ClipboardCheck,
   Download,
   FileSpreadsheet,
   RefreshCw,
@@ -11,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getIncrementRegisterPdf,
+  getMonthlyApprovalPdf,
   getMonthlyReportSummary,
 } from '../services/api/reports';
 import { MonthlyReportSummary } from '../types/report';
@@ -88,6 +90,19 @@ export function ReportsPage() {
     }
   };
 
+  const downloadApprovalReport = async () => {
+    setDownloading('approvals');
+    setError(null);
+    try {
+      const pdf = await getMonthlyApprovalPdf({ year, month });
+      downloadBlob(pdf, `approval-report-${year}-${String(month).padStart(2, '0')}.pdf`);
+    } catch {
+      setError('The monthly approval PDF could not be generated.');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   return (
     <main className="dashboard module-page reports-page">
       <button className="back-button" onClick={() => navigate('/dashboard')}><ArrowLeft size={16} /> Overview</button>
@@ -136,6 +151,22 @@ export function ReportsPage() {
               </div>
               <button className="primary-button report-download" onClick={() => void downloadIncrementRegister()} disabled={downloading !== null}>
                 <Download size={16} /> {downloading === 'increments' ? 'Generating...' : 'Download increment PDF'}
+              </button>
+            </article>
+            <article className="panel report-document-card">
+              <div className="report-document-icon report-document-icon--blue"><ClipboardCheck size={24} /></div>
+              <div className="report-document-content">
+                <span className="eyebrow">Approval outcomes</span>
+                <h2>{summary.monthLabel} decision report</h2>
+                <p>Summarizes accepted and declined increment approvals and lists the employee, decision time, salary values, and approving user.</p>
+                <dl>
+                  <div><dt>Accepted employees</dt><dd>{summary.approvedEmployees}</dd></div>
+                  <div><dt>Declined employees</dt><dd>{summary.declinedEmployees}</dd></div>
+                  <div><dt>Approval rate</dt><dd>{summary.approvalRate.toFixed(1)}%</dd></div>
+                </dl>
+              </div>
+              <button className="primary-button report-download" onClick={() => void downloadApprovalReport()} disabled={downloading !== null}>
+                <Download size={16} /> {downloading === 'approvals' ? 'Generating...' : 'Download approval PDF'}
               </button>
             </article>
           </section>

@@ -6,6 +6,7 @@ import { EmployeesPage } from '../pages/EmployeesPage';
 import { IncrementPage } from '../pages/IncrementPage';
 import { AssessmentsPage } from '../pages/AssessmentsPage';
 import { ApprovalsPage } from '../pages/ApprovalsPage';
+import { ReportsPage } from '../pages/ReportsPage';
 import { LandingPage } from '../pages/LandingPage';
 import { LoginPage } from '../pages/LoginPage';
 import { ModulePage } from '../pages/ModulePage';
@@ -27,7 +28,7 @@ export function AppRoutes() {
         <Route path="salary-scales" element={<ModulePage title="Salary scales" description="Manage gazette salary scales, points and effective dates." />} />
         <Route path="assessments" element={<AssessmentsPage />} />
         <Route path="approvals" element={<ApprovalsPage />} />
-        <Route path="reports" element={<ModulePage title="Reports" description="View operational summaries and export approved HR records." />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="users" element={<ModulePage title="Users & roles" description="Manage access, roles and permission assignments." />} />
         <Route path="settings" element={<ModulePage title="Settings" description="Configure integrations, notifications and organization preferences." />} />
         <Route path="audit-logs" element={<ModulePage title="Activity log" description="Review auditable system and user activity." />} />
