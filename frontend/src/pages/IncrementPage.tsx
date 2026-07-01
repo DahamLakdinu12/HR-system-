@@ -42,6 +42,15 @@ function toMonthInput(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+const incrementYear = new Date().getFullYear();
+const incrementMonths = Array.from({ length: 12 }, (_, monthIndex) => {
+  const date = new Date(incrementYear, monthIndex, 1);
+  return {
+    value: toMonthInput(date),
+    label: new Intl.DateTimeFormat('en-LK', { month: 'long' }).format(date),
+  };
+});
+
 function cleanText(value: string | null | undefined) {
   const text = (value ?? '').trim();
   if (!text || ['n/a', 'na', 'null', '-'].includes(text.toLowerCase())) return '';
@@ -703,12 +712,16 @@ export function IncrementPage() {
             </form>
             <label className="filter-button">
               <CalendarDays size={15} />
-              <input
-                type="month"
+              <select
                 value={selectedMonth}
                 onChange={(event) => setSelectedMonth(event.target.value)}
                 aria-label="Increment month"
-              />
+              >
+                {incrementMonths.map((month) => (
+                  <option value={month.value} key={month.value}>{month.label}</option>
+                ))}
+              </select>
+              <span>{incrementYear}</span>
             </label>
             <button className="filter-button" onClick={handleRefresh}>
               <RefreshCw size={15} /> Reset
