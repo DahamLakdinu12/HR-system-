@@ -11,9 +11,21 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
     public byte[] Generate(AssessmentFormDto assessment)
     {
         ArgumentNullException.ThrowIfNull(assessment);
+        return GenerateMany([assessment]);
+    }
 
-        return Document.Create(document => document.Page(page =>
+    public byte[] GenerateMany(IReadOnlyCollection<AssessmentFormDto> assessments)
+    {
+        ArgumentNullException.ThrowIfNull(assessments);
+        if (assessments.Count == 0)
+            throw new ArgumentException("At least one assessment is required.", nameof(assessments));
+
+        return Document.Create(document =>
         {
+            foreach (var assessment in assessments)
+            {
+                document.Page(page =>
+                {
             page.Size(PageSizes.A4);
             page.MarginTop(22);
             page.MarginHorizontal(38);
@@ -125,7 +137,9 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
             {
                 text.Span(DateTime.Today.ToString("dddd, MMMM d, yyyy")).Bold().FontSize(9);
             });
-        })).GeneratePdf();
+                });
+            }
+        }).GeneratePdf();
     }
 
     private static void NumberedRow(

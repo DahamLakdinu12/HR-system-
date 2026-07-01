@@ -17,7 +17,11 @@ import {
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDueIncrements } from '../services/api/employees';
-import { AssessmentFormPayload, generateAssessmentForm } from '../services/api/increments';
+import {
+  AssessmentFormPayload,
+  generateAssessmentForm,
+  generateAssessmentForms,
+} from '../services/api/increments';
 import {
   getIncrementWorkflows,
   moveToAssessment,
@@ -359,6 +363,8 @@ export function IncrementPage() {
   const [previewPayload, setPreviewPayload] = useState<AssessmentFormPayload | null>(null);
   const [previewPdf, setPreviewPdf] = useState<Blob | null>(null);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [selectedEmployeeNumbers, setSelectedEmployeeNumbers] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<'print' | 'move' | null>(null);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
 
   const range = useMemo(() => getPeriodRange(period), [period]);
@@ -418,6 +424,7 @@ export function IncrementPage() {
           employee.incrementDate &&
           !blockedEmployees.has(`${employee.employeeNumber}|${employee.incrementDate}`)));
         setRows(sortedRows);
+        setSelectedEmployeeNumbers(new Set());
         setSelectedEmployeeNumber(sortedRows[0]?.employeeNumber ?? null);
       })
       .catch(async () => {
@@ -436,6 +443,7 @@ export function IncrementPage() {
               employee.incrementDate <= toDateInput(range.to)),
           );
           setRows(exportedRows);
+          setSelectedEmployeeNumbers(new Set());
           setSelectedEmployeeNumber(exportedRows[0]?.employeeNumber ?? null);
           setUsingExport(true);
         } catch {
@@ -455,6 +463,12 @@ export function IncrementPage() {
   const selectedEmployee = visibleRows.find((employee) => employee.employeeNumber === selectedEmployeeNumber) ?? visibleRows[0] ?? null;
   const readyCount = visibleRows.filter((employee) => getDaysUntil(employee.incrementDate) <= 14).length;
   const incrementTotal = visibleRows.reduce((total, employee) => total + getIncrementAmount(employee), 0);
+  const selectedEmployees = rows.filter((employee) =>
+    selectedEmployeeNumbers.has(employee.employeeNumber));
+  const selectableVisibleEmployees = visibleRows.filter(canGenerateAssessment);
+  const allVisibleSelected = selectableVisibleEmployees.length > 0 &&
+    selectableVisibleEmployees.every((employee) =>
+      selectedEmployeeNumbers.has(employee.employeeNumber));
 
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -465,6 +479,116 @@ export function IncrementPage() {
     setActivePayCode('');
     setPayCodeInput('');
     setPeriod((current) => current);
+  };
+
+  const toggleEmployeeSelection = (employeeNumber: string) => {
+    setSelectedEmployeeNumbers((current) => {
+      const next = new Set(current);
+      if (next.has(employeeNumber)) next.delete(employeeNumber);
+      else next.add(employeeNumber);
+      return next;
+    });
+  };
+
+  const toggleVisibleSelection = () => {
+    setSelectedEmployeeNumbers((current) => {
+      const next = new Set(current);
+      selectableVisibleEmployees.forEach((employee) => {
+        if (allVisibleSelected) next.delete(employee.employeeNumber);
+        else next.add(employee.employeeNumber);
+      });
+      return next;
+    });
+  };
+
+  const selectedPayloads = () => selectedEmployees.map(buildAssessmentPayload);
+
+  const handlePrintSelected = async () => {
+    let payloads: AssessmentFormPayload[];
+    try {
+      payloads = selectedPayloads();
+      if (payloads.length === 0) throw new Error('Select at least one eligible employee.');
+      setAssessmentError(null);
+    } catch (selectionError) {
+      setAssessmentError(selectionError instanceof Error ? selectionError.message : 'Unable to prepare selected assessments.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    setBulkAction('print');
+    try {
+      const pdf = await generateAssessmentForms(payloads);
+      const pdfUrl = URL.createObjectURL(pdf);
+      if (printWindow) {
+        printWindow.addEventListener('load', () => {
+          printWindow.focus();
+          printWindow.print();
+        }, { once: true });
+        printWindow.location.href = pdfUrl;
+        window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      } else {
+        downloadBlob(pdf, 'increment-assessments.pdf');
+        URL.revokeObjectURL(pdfUrl);
+      }
+    } catch {
+      printWindow?.close();
+      setAssessmentError('The selected assessment PDFs could not be generated.');
+    } finally {
+      setBulkAction(null);
+    }
+  };
+
+  const handleMoveSelected = async () => {
+    let payloads: AssessmentFormPayload[];
+    try {
+      payloads = selectedPayloads();
+      if (payloads.length === 0) throw new Error('Select at least one eligible employee.');
+      setAssessmentError(null);
+    } catch (selectionError) {
+      setAssessmentError(selectionError instanceof Error ? selectionError.message : 'Unable to prepare selected employees.');
+      return;
+    }
+
+    setBulkAction('move');
+    const employeeByNumber = new Map(selectedEmployees.map((employee) => [employee.employeeNumber, employee]));
+    const results = await Promise.allSettled(payloads.map((payload) => {
+      const employee = employeeByNumber.get(payload.employeeNumber)!;
+      return moveToAssessment({
+        employeeNumber: payload.employeeNumber,
+        payCode: payload.payCode,
+        employeeName: payload.employeeName,
+        designation: payload.designation,
+        grade: payload.grade,
+        department: payload.department,
+        location: payload.location,
+        incrementDate: payload.incrementDate,
+        currentSalary: payload.currentSalary,
+        salaryPoint: payload.salaryPoint!,
+        incrementAmount: payload.incrementAmount,
+        convertedSalary: payload.convertedSalary,
+        payableSalary: payload.payableSalary,
+        stagnationAllowance: employee.stagnationAllowance,
+      });
+    }));
+
+    const movedNumbers = new Set(
+      results.flatMap((result, index) =>
+        result.status === 'fulfilled' ? [payloads[index].employeeNumber] : []),
+    );
+    setRows((current) => current.filter((employee) => !movedNumbers.has(employee.employeeNumber)));
+    setSelectedEmployeeNumbers((current) =>
+      new Set([...current].filter((employeeNumber) => !movedNumbers.has(employeeNumber))));
+    setBulkAction(null);
+    notifyWorkflowUpdated();
+
+    const failedCount = results.length - movedNumbers.size;
+    if (failedCount > 0) {
+      setAssessmentError(
+        `${movedNumbers.size} employees were moved. ${failedCount} could not be moved and remain selected.`,
+      );
+      return;
+    }
+    navigate('/assessments');
   };
 
   const handleGenerateAssessment = async () => {
@@ -592,6 +716,21 @@ export function IncrementPage() {
             </button>
           </div>
 
+          {selectedEmployees.length > 0 && (
+            <div className="increment-bulk-bar">
+              <strong>{selectedEmployees.length} selected</strong>
+              <span>Generate one combined PDF or move all selected employees.</span>
+              <div>
+                <button className="filter-button" onClick={() => void handlePrintSelected()} disabled={bulkAction !== null}>
+                  <Printer size={15} /> {bulkAction === 'print' ? 'Preparing...' : 'Print selected'}
+                </button>
+                <button className="primary-button" onClick={() => void handleMoveSelected()} disabled={bulkAction !== null}>
+                  <ClipboardCheck size={15} /> {bulkAction === 'move' ? 'Moving...' : 'Move selected to assessment'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {loading && <div className="employee-message">Loading increment records...</div>}
           {error && <div className="employee-message employee-message--error">{error}</div>}
           {assessmentError && <div className="employee-message employee-message--error">{assessmentError}</div>}
@@ -601,14 +740,14 @@ export function IncrementPage() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Employee</th><th>Pay code</th><th>Grade</th><th>Salary point</th><th>Current salary</th><th>Increment</th><th>Status</th><th /></tr>
+                  <tr><th><label className="increment-select"><input type="checkbox" checked={allVisibleSelected} onChange={toggleVisibleSelection} disabled={selectableVisibleEmployees.length === 0} /> Employee</label></th><th>Pay code</th><th>Grade</th><th>Salary point</th><th>Current salary</th><th>Increment</th><th>Status</th><th /></tr>
                 </thead>
                 <tbody>
                   {visibleRows.map((employee, index) => {
                     const selected = selectedEmployee?.employeeNumber === employee.employeeNumber;
                     return (
                       <tr key={employee.employeeNumber} className={selected ? 'increment-row increment-row--selected' : 'increment-row'}>
-                        <td><span className={`table-avatar avatar-${index % 4}`}>{initials(employee)}</span><span><strong>{getEmployeeName(employee)}</strong><small>{employee.employeeNumber}</small></span></td>
+                        <td><input className="increment-row-checkbox" type="checkbox" checked={selectedEmployeeNumbers.has(employee.employeeNumber)} onChange={() => toggleEmployeeSelection(employee.employeeNumber)} disabled={!canGenerateAssessment(employee)} aria-label={`Select ${getEmployeeName(employee)}`} /><span className={`table-avatar avatar-${index % 4}`}>{initials(employee)}</span><span><strong>{getEmployeeName(employee)}</strong><small>{employee.employeeNumber}</small></span></td>
                         <td>{employee.payCode || '-'}</td>
                         <td>{employee.grade || '-'}</td>
                         <td>{employee.salaryPoint ?? '-'}</td>

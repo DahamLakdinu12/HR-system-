@@ -26,3 +26,11 @@ export async function generateAssessmentForm(payload: AssessmentFormPayload) {
 
   return response.data;
 }
+
+export async function generateAssessmentForms(payloads: AssessmentFormPayload[]) {
+  const response = await apiClient.post<Blob>('/increments/assessment-forms', payloads, {
+    responseType: 'blob',
+  });
+
+  return response.data;
+}
