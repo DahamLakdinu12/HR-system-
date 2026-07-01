@@ -317,6 +317,11 @@ export function DashboardPage() {
         <article className="stat-card"><div className="stat-card__icon blue"><CircleCheck /></div><div className="stat-card__meta"><span>Completed</span><strong>{progress.completed}</strong><small className="positive">{completionPercent}% <em>{periodLabel.toLowerCase()}</em></small></div><button onClick={() => navigate('/reports')} aria-label="View reports">•••</button></article>
       </section>
 
+      <section className="panel progress-panel">
+        <div className="panel__header"><div><h2>Increment progress</h2><p>{progress.total} employees scheduled for this cycle</p></div><label className="filter-button"><SlidersHorizontal size={16} /><select value={period} onChange={(event) => setPeriod(event.target.value as ProgressPeriod)} aria-label="Progress period"><option value="thisMonth">This month</option><option value="lastMonth">Last month</option><option value="thisQuarter">This quarter</option></select><ChevronDown size={14} /></label></div>
+        <div className="progress-content"><div className="progress-stat"><strong>{completionPercent}%</strong><span>{periodLabel} completion</span></div><div className="progress-details"><div className="progress-bar"><span className="progress-bar__completed" style={{ width: `${completionPercent}%` }} /><span className="progress-bar__review" style={{ width: `${reviewPercent}%` }} /></div><div className="progress-legend"><span><i className="dot green" />{progress.completed} completed</span><span><i className="dot gold" />{progress.inReview} in review</span><span><i className="dot gray" />{progress.notStarted} not started</span><b>{progress.completed} of {progress.total}</b></div></div></div>
+      </section>
+
       <nav className="overview-tabs" aria-label="Overview sections">
         <button className={activeTab === 'summary' ? 'overview-tab overview-tab--active' : 'overview-tab'} onClick={() => setActiveTab('summary')} type="button">
           Workspace summary
@@ -350,10 +355,6 @@ export function DashboardPage() {
             </article>
           </section>
 
-          <section className="panel progress-panel">
-            <div className="panel__header"><div><h2>Increment progress</h2><p>{progress.total} employees scheduled for this cycle</p></div><label className="filter-button"><SlidersHorizontal size={16} /><select value={period} onChange={(event) => setPeriod(event.target.value as ProgressPeriod)} aria-label="Progress period"><option value="thisMonth">This month</option><option value="lastMonth">Last month</option><option value="thisQuarter">This quarter</option></select><ChevronDown size={14} /></label></div>
-            <div className="progress-content"><div className="progress-stat"><strong>{completionPercent}%</strong><span>{periodLabel} completion</span></div><div className="progress-details"><div className="progress-bar"><span className="progress-bar__completed" style={{ width: `${completionPercent}%` }} /><span className="progress-bar__review" style={{ width: `${reviewPercent}%` }} /></div><div className="progress-legend"><span><i className="dot green" />{progress.completed} completed</span><span><i className="dot gold" />{progress.inReview} in review</span><span><i className="dot gray" />{progress.notStarted} not started</span><b>{progress.completed} of {progress.total}</b></div></div></div>
-          </section>
         </>
       )}
 
