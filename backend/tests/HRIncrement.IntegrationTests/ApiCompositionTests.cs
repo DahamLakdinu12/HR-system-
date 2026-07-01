@@ -9,7 +9,13 @@ public sealed class ApiCompositionTests
     [Fact]
     public void Controllers_AreApiControllersWithVersionedRoutes()
     {
-        var controllers = new[] { typeof(EmployeesController), typeof(IncrementsController) };
+        var controllers = new[]
+        {
+            typeof(EmployeesController),
+            typeof(IncrementsController),
+            typeof(IncrementWorkflowsController),
+            typeof(ReportsController)
+        };
 
         Assert.All(controllers, controller =>
         {

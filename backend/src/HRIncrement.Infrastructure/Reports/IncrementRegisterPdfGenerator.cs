@@ -83,7 +83,7 @@ internal static class IncrementRegisterPdfGenerator
             });
         })).GeneratePdf();
 
-    private static void Header(TableDescriptor table, string text) =>
+    private static void Header(TableCellDescriptor table, string text) =>
         table.Cell().Background(Colors.Green.Darken3).Padding(5)
             .Text(text).SemiBold().FontColor(Colors.White);
 

@@ -117,7 +117,7 @@ internal static class MonthlyApprovalPdfGenerator
                 column.Item().Text(value).Bold().FontSize(18).FontColor(color);
             });
 
-    private static void Header(TableDescriptor table, string text) =>
+    private static void Header(TableCellDescriptor table, string text) =>
         table.Cell().Background(Colors.Green.Darken3).Padding(5)
             .Text(text).SemiBold().FontColor(Colors.White);
 
