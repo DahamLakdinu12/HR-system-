@@ -5,11 +5,21 @@ import {
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDueIncrements, searchEmployees } from '../services/api/employees';
+import { getIncrementWorkflows } from '../services/api/incrementWorkflows';
 import { Employee } from '../types/employee';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
 type OverviewTab = 'summary' | 'upcoming';
+type ProgressPeriod = 'thisMonth' | 'lastMonth' | 'thisQuarter';
+
+type ProgressSummary = {
+  completed: number;
+  inReview: number;
+  awaitingApproval: number;
+  notStarted: number;
+  total: number;
+};
 
 function toDateInput(date: Date) {
   const year = date.getFullYear();
@@ -115,12 +125,43 @@ function initials(employee: Employee) {
     .join('') || 'HR';
 }
 
+function getProgressRange(period: ProgressPeriod) {
+  const today = new Date();
+  if (period === 'lastMonth') {
+    return {
+      from: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+      to: new Date(today.getFullYear(), today.getMonth(), 0),
+      label: 'Last month',
+    };
+  }
+  if (period === 'thisQuarter') {
+    const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+    return {
+      from: new Date(today.getFullYear(), quarterStartMonth, 1),
+      to: new Date(today.getFullYear(), quarterStartMonth + 3, 0),
+      label: 'This quarter',
+    };
+  }
+  return {
+    from: new Date(today.getFullYear(), today.getMonth(), 1),
+    to: new Date(today.getFullYear(), today.getMonth() + 1, 0),
+    label: 'This month',
+  };
+}
+
 export function DashboardPage() {
   const navigate = useNavigate();
   const { dataSource } = useDataSource();
   const sourceLabel = getEmployeeDataSourceLabel(dataSource);
   const [activeTab, setActiveTab] = useState<OverviewTab>('summary');
-  const [period, setPeriod] = useState('This month');
+  const [period, setPeriod] = useState<ProgressPeriod>('thisMonth');
+  const [progress, setProgress] = useState<ProgressSummary>({
+    completed: 0,
+    inReview: 0,
+    awaitingApproval: 0,
+    notStarted: 0,
+    total: 0,
+  });
   const [totalEmployees, setTotalEmployees] = useState<number | null>(null);
   const [dueThisMonth, setDueThisMonth] = useState<Employee[]>([]);
   const [upcomingIncrements, setUpcomingIncrements] = useState<Employee[]>([]);
@@ -185,6 +226,83 @@ export function DashboardPage() {
       .catch(() => undefined);
   }, [dataSource]);
 
+  useEffect(() => {
+    let ignore = false;
+    const range = getProgressRange(period);
+
+    const loadProgress = async () => {
+      try {
+        const workflows = await getIncrementWorkflows();
+        const dueEmployees: Employee[] = [];
+        const pageSize = 200;
+        for (let page = 1; ; page += 1) {
+          const batch = await getDueIncrements({
+            from: toDateInput(range.from),
+            to: toDateInput(range.to),
+            page,
+            pageSize,
+          });
+          dueEmployees.push(...batch);
+          if (batch.length < pageSize) break;
+        }
+
+        const fromValue = toDateInput(range.from);
+        const toValue = toDateInput(range.to);
+        const periodWorkflows = workflows.filter((workflow) =>
+          workflow.incrementDate >= fromValue && workflow.incrementDate <= toValue);
+        const blockedKeys = new Set(
+          periodWorkflows
+            .filter((workflow) => !['Draft', 'ReturnedToIncrement'].includes(workflow.status))
+            .map((workflow) => `${workflow.employeeNumber}|${workflow.incrementDate}`),
+        );
+        const notStarted = dueEmployees.filter((employee) =>
+          employee.incrementDate &&
+          !blockedKeys.has(`${employee.employeeNumber}|${employee.incrementDate}`)).length;
+        const completed = periodWorkflows.filter((workflow) =>
+          ['Approved', 'Finalized'].includes(workflow.status)).length;
+        const inReview = periodWorkflows.filter((workflow) =>
+          ['PendingAssessment', 'PendingApproval', 'Rejected'].includes(workflow.status)).length;
+        const awaitingApproval = periodWorkflows.filter((workflow) =>
+          workflow.status === 'PendingApproval').length;
+
+        if (!ignore) {
+          setProgress({
+            completed,
+            inReview,
+            awaitingApproval,
+            notStarted,
+            total: completed + inReview + notStarted,
+          });
+        }
+      } catch {
+        if (!ignore) {
+          setProgress({
+            completed: 0,
+            inReview: 0,
+            awaitingApproval: 0,
+            notStarted: 0,
+            total: 0,
+          });
+        }
+      }
+    };
+
+    void loadProgress();
+    window.addEventListener('increment-workflow-updated', loadProgress);
+    return () => {
+      ignore = true;
+      window.removeEventListener('increment-workflow-updated', loadProgress);
+    };
+  }, [dataSource, period]);
+
+  const completionPercent = progress.total
+    ? Math.round((progress.completed / progress.total) * 100)
+    : 0;
+  const reviewPercent = progress.total
+    ? (progress.inReview / progress.total) * 100
+    : 0;
+  const periodLabel = getProgressRange(period).label;
+
   return (
     <main className="dashboard">
       <section className="welcome-row">
@@ -195,8 +313,8 @@ export function DashboardPage() {
       <section className="stat-grid">
         <article className="stat-card"><div className="stat-card__icon mint"><Users /></div><div className="stat-card__meta"><span>Total employees</span><strong>{totalEmployees?.toLocaleString('en-LK') ?? '...'}</strong><small>from {sourceLabel}</small></div><button onClick={() => navigate('/employees')} aria-label="View employees">•••</button></article>
         <article className="stat-card"><div className="stat-card__icon amber"><CalendarDays /></div><div className="stat-card__meta"><span>Due this month</span><strong>{dueThisMonth.length}</strong><small><b>{upcomingIncrements.length}</b> in next 14 days</small></div><button onClick={() => navigate('/employees')} aria-label="View due increments">•••</button></article>
-        <article className="stat-card"><div className="stat-card__icon violet"><ClipboardCheck /></div><div className="stat-card__meta"><span>Awaiting approval</span><strong>27</strong><small><b>5</b> overdue</small></div><button onClick={() => navigate('/approvals')} aria-label="View approvals">•••</button></article>
-        <article className="stat-card"><div className="stat-card__icon blue"><CircleCheck /></div><div className="stat-card__meta"><span>Completed</span><strong>156</strong><small className="positive">↑ 18 <em>this month</em></small></div><button onClick={() => navigate('/reports')} aria-label="View reports">•••</button></article>
+        <article className="stat-card"><div className="stat-card__icon violet"><ClipboardCheck /></div><div className="stat-card__meta"><span>Awaiting approval</span><strong>{progress.awaitingApproval}</strong><small><b>{progress.inReview}</b> in review</small></div><button onClick={() => navigate('/approvals')} aria-label="View approvals">•••</button></article>
+        <article className="stat-card"><div className="stat-card__icon blue"><CircleCheck /></div><div className="stat-card__meta"><span>Completed</span><strong>{progress.completed}</strong><small className="positive">{completionPercent}% <em>{periodLabel.toLowerCase()}</em></small></div><button onClick={() => navigate('/reports')} aria-label="View reports">•••</button></article>
       </section>
 
       <nav className="overview-tabs" aria-label="Overview sections">
@@ -233,8 +351,8 @@ export function DashboardPage() {
           </section>
 
           <section className="panel progress-panel">
-            <div className="panel__header"><div><h2>Increment progress</h2><p>{dueThisMonth.length} employees scheduled for this cycle</p></div><label className="filter-button"><SlidersHorizontal size={16} /><select value={period} onChange={(event) => setPeriod(event.target.value)} aria-label="Progress period"><option>This month</option><option>Last month</option><option>This quarter</option></select><ChevronDown size={14} /></label></div>
-            <div className="progress-content"><div className="progress-stat"><strong>68%</strong><span>{period} completion</span></div><div className="progress-details"><div className="progress-bar"><span /></div><div className="progress-legend"><span><i className="dot green" />57 completed</span><span><i className="dot gold" />15 in review</span><span><i className="dot gray" />12 not started</span><b>57 of 84</b></div></div></div>
+            <div className="panel__header"><div><h2>Increment progress</h2><p>{progress.total} employees scheduled for this cycle</p></div><label className="filter-button"><SlidersHorizontal size={16} /><select value={period} onChange={(event) => setPeriod(event.target.value as ProgressPeriod)} aria-label="Progress period"><option value="thisMonth">This month</option><option value="lastMonth">Last month</option><option value="thisQuarter">This quarter</option></select><ChevronDown size={14} /></label></div>
+            <div className="progress-content"><div className="progress-stat"><strong>{completionPercent}%</strong><span>{periodLabel} completion</span></div><div className="progress-details"><div className="progress-bar"><span className="progress-bar__completed" style={{ width: `${completionPercent}%` }} /><span className="progress-bar__review" style={{ width: `${reviewPercent}%` }} /></div><div className="progress-legend"><span><i className="dot green" />{progress.completed} completed</span><span><i className="dot gold" />{progress.inReview} in review</span><span><i className="dot gray" />{progress.notStarted} not started</span><b>{progress.completed} of {progress.total}</b></div></div></div>
           </section>
         </>
       )}
