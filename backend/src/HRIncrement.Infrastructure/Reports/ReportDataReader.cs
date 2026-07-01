@@ -71,6 +71,54 @@ internal sealed class ReportDataReader(
             .ToList();
     }
 
+    public async Task<IReadOnlyList<ApprovalDecisionRowDto>> GetDecisionRowsAsync(
+        EmployeeDataSource dataSource,
+        int year,
+        int month,
+        CancellationToken cancellationToken)
+    {
+        var (fromUtc, toUtc) = DecisionRangeUtc(year, month);
+        var sourceName = dataSource == EmployeeDataSource.Hcm ? "hcm" : "hr-staff";
+
+        var rows = await (
+            from decision in applicationDbContext.WorkflowDecisions.AsNoTracking()
+            join workflow in applicationDbContext.EmployeeIncrements.AsNoTracking()
+                on decision.EmployeeIncrementId equals workflow.Id
+            where workflow.DataSource == sourceName &&
+                  decision.DecidedAtUtc >= fromUtc &&
+                  decision.DecidedAtUtc < toUtc
+            orderby decision.DecidedAtUtc, workflow.PayCode
+            select new
+            {
+                workflow.PayCode,
+                workflow.EmployeeName,
+                workflow.Designation,
+                workflow.Grade,
+                workflow.Department,
+                workflow.DueDate,
+                workflow.Calculation.CurrentSalary,
+                workflow.Calculation.IncrementAmount,
+                workflow.Calculation.PayableSalary,
+                decision.Approved,
+                decision.DecidedBy,
+                decision.DecidedAtUtc
+            }).ToListAsync(cancellationToken);
+
+        return rows.Select(row => new ApprovalDecisionRowDto(
+            row.PayCode,
+            row.EmployeeName,
+            row.Designation,
+            row.Grade,
+            row.Department,
+            row.DueDate,
+            row.CurrentSalary,
+            row.IncrementAmount,
+            row.PayableSalary,
+            row.Approved,
+            row.DecidedBy,
+            row.DecidedAtUtc)).ToList();
+    }
+
     public static (DateOnly From, DateOnly To) MonthRange(int year, int month)
     {
         if (year is < 2000 or > 2100)
@@ -80,5 +128,18 @@ internal sealed class ReportDataReader(
 
         var from = new DateOnly(year, month, 1);
         return (from, from.AddMonths(1).AddDays(-1));
+    }
+
+    private static (DateTimeOffset FromUtc, DateTimeOffset ToUtc) DecisionRangeUtc(
+        int year,
+        int month)
+    {
+        var (from, _) = MonthRange(year, month);
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Colombo");
+        var localFrom = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        var localTo = from.AddMonths(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        return (
+            new DateTimeOffset(localFrom, timeZone.GetUtcOffset(localFrom)).ToUniversalTime(),
+            new DateTimeOffset(localTo, timeZone.GetUtcOffset(localTo)).ToUniversalTime());
     }
 }
