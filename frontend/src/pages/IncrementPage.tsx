@@ -31,13 +31,15 @@ import { Employee } from '../types/employee';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
-type IncrementPeriod = 'next30' | 'next60' | 'thisMonth';
-
 function toDateInput(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function toMonthInput(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function cleanText(value: string | null | undefined) {
@@ -102,26 +104,22 @@ async function loadExportedEmployees() {
   return parseEmployeeExport(await response.text());
 }
 
-function getPeriodRange(period: IncrementPeriod) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (period === 'thisMonth') {
-    return {
-      from: today,
-      to: new Date(today.getFullYear(), today.getMonth() + 1, 0),
-      label: 'This month',
-    };
-  }
-
-  const days = period === 'next30' ? 30 : 60;
-  const to = new Date(today);
-  to.setDate(today.getDate() + days);
-
+function getMonthRange(monthValue: string) {
+  const [yearValue, monthNumberValue] = monthValue.split('-').map(Number);
+  const now = new Date();
+  const year = Number.isInteger(yearValue) ? yearValue : now.getFullYear();
+  const monthNumber = Number.isInteger(monthNumberValue) && monthNumberValue >= 1 && monthNumberValue <= 12
+    ? monthNumberValue
+    : now.getMonth() + 1;
+  const from = new Date(year, monthNumber - 1, 1);
+  const to = new Date(year, monthNumber, 0);
   return {
-    from: today,
+    from,
     to,
-    label: `Next ${days} days`,
+    label: new Intl.DateTimeFormat('en-LK', {
+      month: 'long',
+      year: 'numeric',
+    }).format(from),
   };
 }
 
@@ -349,7 +347,7 @@ export function IncrementPage() {
   const navigate = useNavigate();
   const { dataSource } = useDataSource();
   const sourceLabel = getEmployeeDataSourceLabel(dataSource);
-  const [period, setPeriod] = useState<IncrementPeriod>('next30');
+  const [selectedMonth, setSelectedMonth] = useState(() => toMonthInput(new Date()));
   const [payCodeInput, setPayCodeInput] = useState('');
   const [activePayCode, setActivePayCode] = useState('');
   const [rows, setRows] = useState<Employee[]>([]);
@@ -367,7 +365,7 @@ export function IncrementPage() {
   const [bulkAction, setBulkAction] = useState<'print' | 'move' | null>(null);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
 
-  const range = useMemo(() => getPeriodRange(period), [period]);
+  const range = useMemo(() => getMonthRange(selectedMonth), [selectedMonth]);
 
   useEffect(() => {
     if (!previewPdf) {
@@ -478,7 +476,7 @@ export function IncrementPage() {
   const handleRefresh = () => {
     setActivePayCode('');
     setPayCodeInput('');
-    setPeriod((current) => current);
+    setSelectedMonth(toMonthInput(new Date()));
   };
 
   const toggleEmployeeSelection = (employeeNumber: string) => {
@@ -705,11 +703,12 @@ export function IncrementPage() {
             </form>
             <label className="filter-button">
               <CalendarDays size={15} />
-              <select value={period} onChange={(event) => setPeriod(event.target.value as IncrementPeriod)} aria-label="Increment period">
-                <option value="next30">Next 30 days</option>
-                <option value="next60">Next 60 days</option>
-                <option value="thisMonth">This month</option>
-              </select>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(event.target.value)}
+                aria-label="Increment month"
+              />
             </label>
             <button className="filter-button" onClick={handleRefresh}>
               <RefreshCw size={15} /> Reset

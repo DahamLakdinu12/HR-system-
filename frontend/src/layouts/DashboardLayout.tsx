@@ -50,9 +50,9 @@ export function DashboardLayout() {
 
   useEffect(() => {
     const loadCounts = async () => {
-      const from = new Date();
-      const to = new Date(from);
-      to.setDate(to.getDate() + 60);
+      const today = new Date();
+      const from = new Date(today.getFullYear(), today.getMonth(), 1);
+      const to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       const dateValue = (date: Date) =>
         `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
