@@ -8,8 +8,10 @@
    both Assessments and Approvals.
 3. `Not approved` changes the status to `Rejected`. The employee remains in
    Assessments and is removed from Approvals.
-4. `Return to increments` changes the status to `ReturnedToIncrement`, making
-   the employee eligible in the increment queue again.
+4. `Return to increments` can undo a pending move directly from Approvals or
+   return a rejected record from Assessments. It changes the status to
+   `ReturnedToIncrement`, making the employee eligible in the increment queue
+   again.
 5. `Approve` changes the status to `Approved` and advances the HR staff record.
 
 ## Approval database update

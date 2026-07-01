@@ -74,8 +74,9 @@ public sealed class EmployeeIncrement : AuditableEntity
 
     public void ReturnToIncrement()
     {
-        if (Status != WorkflowStatus.Rejected)
-            throw new InvalidOperationException("Only rejected records can return to increments.");
+        if (Status is not (WorkflowStatus.PendingApproval or WorkflowStatus.Rejected))
+            throw new InvalidOperationException(
+                "Only pending or rejected assessment records can return to increments.");
         Status = WorkflowStatus.ReturnedToIncrement;
     }
 }

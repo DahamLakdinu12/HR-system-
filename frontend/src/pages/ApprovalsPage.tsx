@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, CircleCheck, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, Check, CircleCheck, RefreshCw, RotateCcw, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,6 +6,7 @@ import {
   getIncrementWorkflows,
   notifyWorkflowUpdated,
   rejectIncrement,
+  returnToIncrements,
 } from '../services/api/incrementWorkflows';
 import { IncrementWorkflow } from '../types/incrementWorkflow';
 
@@ -72,6 +73,22 @@ export function ApprovalsPage() {
     }
   };
 
+  const handleReturn = async (row: IncrementWorkflow) => {
+    setBusyId(row.id);
+    setError(null);
+    setMessage(null);
+    try {
+      await returnToIncrements(row.id);
+      setRows((current) => current.filter((item) => item.id !== row.id));
+      setMessage(`${row.employeeName} was returned to the increment queue.`);
+      notifyWorkflowUpdated();
+    } catch {
+      setError('The employee could not be returned to the increment queue.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <main className="dashboard module-page workflow-page">
       <button className="back-button" onClick={() => navigate('/dashboard')}><ArrowLeft size={16} /> Overview</button>
@@ -106,7 +123,7 @@ export function ApprovalsPage() {
                     <td><strong>{formatMoney(row.incrementAmount)}</strong></td>
                     <td>{formatMoney(row.convertedSalary)}</td>
                     <td><strong>{formatMoney(row.payableSalary)}</strong></td>
-                    <td><div className="approval-actions"><button className="approval-button approval-button--reject" onClick={() => void transition(row, false)} disabled={busyId === row.id}><X size={14} /> Not approved</button><button className="approval-button approval-button--approve" onClick={() => void transition(row, true)} disabled={busyId === row.id}><Check size={14} /> Approve</button></div></td>
+                    <td><div className="approval-actions"><button className="approval-button approval-button--return" onClick={() => void handleReturn(row)} disabled={busyId === row.id}><RotateCcw size={14} /> Return</button><button className="approval-button approval-button--reject" onClick={() => void transition(row, false)} disabled={busyId === row.id}><X size={14} /> Not approved</button><button className="approval-button approval-button--approve" onClick={() => void transition(row, true)} disabled={busyId === row.id}><Check size={14} /> Approve</button></div></td>
                   </tr>
                 ))}
                 {rows.length === 0 && <tr><td colSpan={7}>No assessments are waiting for approval.</td></tr>}

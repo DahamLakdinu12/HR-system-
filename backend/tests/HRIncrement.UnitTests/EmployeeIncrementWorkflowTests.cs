@@ -38,6 +38,17 @@ public sealed class EmployeeIncrementWorkflowTests
         Assert.Throws<InvalidOperationException>(() => workflow.Reject());
     }
 
+    [Fact]
+    public void Workflow_CanUndoMoveToAssessmentBeforeDecision()
+    {
+        var workflow = CreateWorkflow();
+
+        workflow.MoveToAssessment();
+        workflow.ReturnToIncrement();
+
+        Assert.Equal(WorkflowStatus.ReturnedToIncrement, workflow.Status);
+    }
+
     private static EmployeeIncrement CreateWorkflow() => new(
         "1055",
         "1055",
