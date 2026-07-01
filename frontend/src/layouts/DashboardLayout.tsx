@@ -14,12 +14,12 @@ import { WorkflowCounts } from '../types/incrementWorkflow';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
-  { icon: Users, label: 'Employees', path: '/employees' },
   { icon: TrendingUp, label: 'Increments', path: '/increments' },
-  { icon: WalletCards, label: 'Salary scales', path: '/salary-scales' },
+  { icon: Users, label: 'Employees', path: '/employees' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: CircleCheck, label: 'Approvals', path: '/approvals' },
   { icon: FileText, label: 'Reports', path: '/reports' },
+  { icon: WalletCards, label: 'Salary scales', path: '/salary-scales' },
 ];
 
 export function DashboardLayout() {
