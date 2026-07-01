@@ -178,19 +178,31 @@ internal sealed class IncrementWorkflowService(
                     "The employee salary changed before approval. Refresh and review the record.");
 
             workflow.Approve();
-            workflow.MarkModified(actor, timeProvider.GetUtcNow());
+            var decidedAtUtc = timeProvider.GetUtcNow();
+            workflow.MarkModified(actor, decidedAtUtc);
+            applicationDbContext.WorkflowDecisions.Add(
+                new WorkflowDecision(workflow.Id, true, actor, decidedAtUtc));
             await applicationDbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return ToDto(workflow);
         });
     }
 
-    public Task<IncrementWorkflowDto> RejectAsync(
+    public async Task<IncrementWorkflowDto> RejectAsync(
         EmployeeDataSource dataSource,
         Guid id,
         string actor,
-        CancellationToken cancellationToken) =>
-        TransitionAsync(dataSource, id, actor, workflow => workflow.Reject(), cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        var workflow = await FindAsync(dataSource, id, cancellationToken);
+        workflow.Reject();
+        var decidedAtUtc = timeProvider.GetUtcNow();
+        workflow.MarkModified(actor, decidedAtUtc);
+        applicationDbContext.WorkflowDecisions.Add(
+            new WorkflowDecision(workflow.Id, false, actor, decidedAtUtc));
+        await applicationDbContext.SaveChangesAsync(cancellationToken);
+        return ToDto(workflow);
+    }
 
     public Task<IncrementWorkflowDto> ReturnToIncrementAsync(
         EmployeeDataSource dataSource,
