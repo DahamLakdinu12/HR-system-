@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Building2, RefreshCw, Search, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin, RefreshCw, Search, UserRound, Users, WalletCards, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getDepartments, searchEmployees } from '../services/api/employees';
@@ -227,10 +227,27 @@ export function EmployeesPage() {
   const [departmentsError, setDepartmentsError] = useState<string | null>(null);
   const [departmentsUsingExport, setDepartmentsUsingExport] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [previewEmployee, setPreviewEmployee] = useState<Employee | null>(null);
 
   useEffect(() => {
     setPayCodeInput(payCode);
   }, [payCode]);
+
+  useEffect(() => {
+    if (!previewEmployee) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewEmployee(null);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [previewEmployee]);
 
   useEffect(() => {
     let ignore = false;
@@ -451,7 +468,19 @@ export function EmployeesPage() {
                 </thead>
                 <tbody>
                   {visibleEmployees.map((employee, index) => (
-                    <tr key={employee.employeeNumber}>
+                    <tr
+                      className="employee-row"
+                      key={employee.employeeNumber}
+                      onClick={() => setPreviewEmployee(employee)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setPreviewEmployee(employee);
+                        }
+                      }}
+                      tabIndex={0}
+                      aria-label={`View details for ${getEmployeeName(employee)}`}
+                    >
                       <td>
                         <span className={`table-avatar avatar-${index % 4}`}>{initials(employee)}</span>
                         <span>
@@ -591,6 +620,78 @@ export function EmployeesPage() {
             </>
           )}
         </section>
+      )}
+
+      {previewEmployee && (
+        <div className="employee-preview-overlay" role="presentation" onMouseDown={() => setPreviewEmployee(null)}>
+          <aside
+            className="employee-preview-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="employee-preview-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="employee-preview-header">
+              <div>
+                <span className="eyebrow">Employee preview</span>
+                <h2 id="employee-preview-title">{getEmployeeName(previewEmployee)}</h2>
+                <p>{previewEmployee.designation || 'Designation unavailable'}</p>
+              </div>
+              <button onClick={() => setPreviewEmployee(null)} aria-label="Close employee preview"><X size={20} /></button>
+            </header>
+
+            <div className="employee-preview-content">
+              <section className="employee-preview-identity">
+                <span className="employee-preview-avatar">{initials(previewEmployee)}</span>
+                <div><strong>{getEmployeeName(previewEmployee)}</strong><span>{previewEmployee.payCode || previewEmployee.employeeNumber}</span></div>
+                <span className={previewEmployee.salaryConversionStatus === 'Applied' ? 'status status--ready' : 'status status--review'}>
+                  {previewEmployee.salaryConversionStatus === 'Applied' ? 'Gazette applied' : previewEmployee.salaryConversionStatus}
+                </span>
+              </section>
+
+              <section className="employee-preview-section">
+                <h3><UserRound size={16} /> Employment</h3>
+                <dl>
+                  <div><dt>Employee number</dt><dd>{previewEmployee.employeeNumber || '-'}</dd></div>
+                  <div><dt>Pay code</dt><dd>{previewEmployee.payCode || '-'}</dd></div>
+                  <div><dt>Designation</dt><dd>{previewEmployee.designation || '-'}</dd></div>
+                  <div><dt>Grade</dt><dd>{previewEmployee.grade || '-'}</dd></div>
+                </dl>
+              </section>
+
+              <section className="employee-preview-section">
+                <h3><MapPin size={16} /> Organization</h3>
+                <dl>
+                  <div><dt>Department</dt><dd>{previewEmployee.department || 'Unassigned'}</dd></div>
+                  <div><dt>Location</dt><dd>{previewEmployee.location || '-'}</dd></div>
+                  <div><dt>Data source</dt><dd>{sourceLabel}</dd></div>
+                  <div><dt>Salary scale</dt><dd>{previewEmployee.salaryScale || '-'}</dd></div>
+                </dl>
+              </section>
+
+              <section className="employee-preview-section">
+                <h3><CalendarDays size={16} /> Important dates</h3>
+                <dl>
+                  <div><dt>Appointment date</dt><dd>{formatDate(previewEmployee.appointmentDate)}</dd></div>
+                  <div><dt>Promotion date</dt><dd>{formatDate(previewEmployee.promotionDate)}</dd></div>
+                  <div><dt>Next increment</dt><dd>{formatDate(previewEmployee.incrementDate)}</dd></div>
+                </dl>
+              </section>
+
+              <section className="employee-preview-section employee-preview-section--salary">
+                <h3><WalletCards size={16} /> Salary and increment</h3>
+                <dl>
+                  <div><dt>Salary point</dt><dd>{previewEmployee.salaryPoint ?? '-'}</dd></div>
+                  <div><dt>Current salary</dt><dd>{formatMoney(previewEmployee.currentSalary)}</dd></div>
+                  <div><dt>Increment amount</dt><dd>{formatMoney(previewEmployee.incrementAmount)}</dd></div>
+                  <div><dt>Converted salary</dt><dd>{formatMoney(previewEmployee.convertedSalary)}</dd></div>
+                  <div><dt>Payable salary</dt><dd>{formatMoney(previewEmployee.payableSalary)}</dd></div>
+                  <div><dt>Stagnation allowance</dt><dd>{formatMoney(previewEmployee.stagnationAllowance)}</dd></div>
+                </dl>
+              </section>
+            </div>
+          </aside>
+        </div>
       )}
     </main>
   );
