@@ -2,13 +2,17 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
+  Download,
   FileSpreadsheet,
   RefreshCw,
   XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMonthlyReportSummary } from '../services/api/reports';
+import {
+  getIncrementRegisterPdf,
+  getMonthlyReportSummary,
+} from '../services/api/reports';
 import { MonthlyReportSummary } from '../types/report';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
@@ -27,6 +31,17 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function ReportsPage() {
   const navigate = useNavigate();
   const { dataSource } = useDataSource();
@@ -36,6 +51,7 @@ export function ReportsPage() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [summary, setSummary] = useState<MonthlyReportSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState<'increments' | 'approvals' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const years = useMemo(
@@ -58,6 +74,19 @@ export function ReportsPage() {
   useEffect(() => {
     void loadSummary();
   }, [loadSummary]);
+
+  const downloadIncrementRegister = async () => {
+    setDownloading('increments');
+    setError(null);
+    try {
+      const pdf = await getIncrementRegisterPdf({ year, month });
+      downloadBlob(pdf, `increment-register-${year}-${String(month).padStart(2, '0')}.pdf`);
+    } catch {
+      setError('The increment register PDF could not be generated.');
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   return (
     <main className="dashboard module-page reports-page">
@@ -90,6 +119,25 @@ export function ReportsPage() {
             <article className="stat-card"><div className="stat-card__icon violet"><CalendarDays /></div><div className="stat-card__meta"><span>Total increments</span><strong>{formatMoney(summary.totalIncrementAmount)}</strong><small>monthly register</small></div></article>
             <article className="stat-card"><div className="stat-card__icon mint"><CheckCircle2 /></div><div className="stat-card__meta"><span>Accepted</span><strong>{summary.approvedEmployees}</strong><small>{summary.approvalRate.toFixed(1)}% approval rate</small></div></article>
             <article className="stat-card"><div className="stat-card__icon amber"><XCircle /></div><div className="stat-card__meta"><span>Declined</span><strong>{summary.declinedEmployees}</strong><small>retained for review</small></div></article>
+          </section>
+
+          <section className="report-document-grid">
+            <article className="panel report-document-card">
+              <div className="report-document-icon report-document-icon--green"><FileSpreadsheet size={24} /></div>
+              <div className="report-document-content">
+                <span className="eyebrow">Increment register</span>
+                <h2>{summary.monthLabel} increment table</h2>
+                <p>Exports the employees currently shown in the Increment page for the selected month, including salary points and converted values.</p>
+                <dl>
+                  <div><dt>Employees</dt><dd>{summary.incrementEmployees}</dd></div>
+                  <div><dt>Total increment</dt><dd>{formatMoney(summary.totalIncrementAmount)}</dd></div>
+                  <div><dt>Total payable salary</dt><dd>{formatMoney(summary.totalPayableSalary)}</dd></div>
+                </dl>
+              </div>
+              <button className="primary-button report-download" onClick={() => void downloadIncrementRegister()} disabled={downloading !== null}>
+                <Download size={16} /> {downloading === 'increments' ? 'Generating...' : 'Download increment PDF'}
+              </button>
+            </article>
           </section>
         </>
       )}
