@@ -4,13 +4,16 @@ import {
   CalendarDays,
   Calculator,
   CheckCircle2,
+  Download,
   FileText,
+  Printer,
   RefreshCw,
   Search,
   TrendingUp,
   Users,
+  X,
 } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDueIncrements } from '../services/api/employees';
 import { AssessmentFormPayload, generateAssessmentForm } from '../services/api/increments';
@@ -346,8 +349,39 @@ export function IncrementPage() {
   const [usingExport, setUsingExport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [previewPayload, setPreviewPayload] = useState<AssessmentFormPayload | null>(null);
+  const [previewPdf, setPreviewPdf] = useState<Blob | null>(null);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const previewFrameRef = useRef<HTMLIFrameElement>(null);
 
   const range = useMemo(() => getPeriodRange(period), [period]);
+
+  useEffect(() => {
+    if (!previewPdf) {
+      setPreviewPdfUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(previewPdf);
+    setPreviewPdfUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [previewPdf]);
+
+  useEffect(() => {
+    if (!previewPayload) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewPayload(null);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [previewPayload]);
 
   useEffect(() => {
     let ignore = false;
@@ -427,21 +461,39 @@ export function IncrementPage() {
       setAssessmentError(assessmentError instanceof Error ? assessmentError.message : 'Unable to generate the assessment.');
       return;
     }
-    if (usingExport) {
-      openPrintableAssessmentForm(payload);
-      return;
-    }
 
+    setPreviewPayload(payload);
+    setPreviewPdf(null);
     setGenerating(true);
 
     try {
       const pdf = await generateAssessmentForm(payload);
-      downloadBlob(pdf, `increment-assessment-${payload.payCode}.pdf`);
+      setPreviewPdf(pdf);
     } catch {
-      openPrintableAssessmentForm(payload);
+      setAssessmentError('The PDF preview could not be generated. Confirm that the backend API is running.');
     } finally {
       setGenerating(false);
     }
+  };
+
+  const closeAssessmentPreview = () => {
+    setPreviewPayload(null);
+    setPreviewPdf(null);
+  };
+
+  const downloadAssessmentPdf = () => {
+    if (!previewPayload || !previewPdf) return;
+    downloadBlob(previewPdf, `increment-assessment-${previewPayload.payCode}.pdf`);
+  };
+
+  const printAssessment = () => {
+    if (previewPdfUrl) {
+      previewFrameRef.current?.contentWindow?.focus();
+      previewFrameRef.current?.contentWindow?.print();
+      return;
+    }
+
+    if (previewPayload) openPrintableAssessmentForm(previewPayload);
   };
 
   return (
@@ -563,6 +615,78 @@ export function IncrementPage() {
           )}
         </aside>
       </section>
+
+      {previewPayload && (
+        <div className="assessment-preview-overlay" role="presentation" onMouseDown={closeAssessmentPreview}>
+          <section
+            className="assessment-preview-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assessment-preview-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="assessment-preview-header">
+              <div>
+                <span className="eyebrow">Assessment preview</span>
+                <h2 id="assessment-preview-title">{previewPayload.employeeName}</h2>
+                <p>Pay code {previewPayload.payCode} · {previewPayload.grade}</p>
+              </div>
+              <button className="assessment-preview-close" onClick={closeAssessmentPreview} aria-label="Close assessment preview">
+                <X size={20} />
+              </button>
+            </header>
+
+            <div className="assessment-preview-body">
+              <aside className="assessment-preview-summary">
+                <h3>Increment details</h3>
+                <dl>
+                  <div><dt>Increment date</dt><dd>{formatDate(previewPayload.incrementDate)}</dd></div>
+                  <div><dt>Salary scale</dt><dd>{previewPayload.gazetteReference}</dd></div>
+                  <div><dt>Salary point</dt><dd>{previewPayload.salaryPoint ?? '-'}</dd></div>
+                  <div><dt>Current salary</dt><dd>{formatMoney(previewPayload.currentSalary)}</dd></div>
+                  <div><dt>Increment</dt><dd>{formatMoney(previewPayload.incrementAmount)}</dd></div>
+                  <div><dt>Converted salary</dt><dd>{formatMoney(previewPayload.convertedSalary)}</dd></div>
+                  <div><dt>Payable salary</dt><dd>{formatMoney(previewPayload.payableSalary)}</dd></div>
+                </dl>
+              </aside>
+
+              <div className="assessment-preview-document">
+                {generating && (
+                  <div className="assessment-preview-loading">
+                    <RefreshCw size={24} />
+                    <strong>Preparing PDF preview...</strong>
+                    <span>The assessment is being generated from the approved salary conversion.</span>
+                  </div>
+                )}
+                {!generating && previewPdfUrl && (
+                  <iframe
+                    ref={previewFrameRef}
+                    src={previewPdfUrl}
+                    title={`Increment assessment for ${previewPayload.employeeName}`}
+                  />
+                )}
+                {!generating && !previewPdfUrl && (
+                  <div className="assessment-preview-loading assessment-preview-loading--error">
+                    <FileText size={24} />
+                    <strong>PDF preview unavailable</strong>
+                    <span>Check that the backend API is running, then close this preview and try again.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <footer className="assessment-preview-actions">
+              <button className="filter-button" onClick={closeAssessmentPreview}>Close</button>
+              <button className="filter-button" onClick={printAssessment} disabled={generating}>
+                <Printer size={16} /> Print
+              </button>
+              <button className="primary-button" onClick={downloadAssessmentPdf} disabled={generating || !previewPdf}>
+                <Download size={16} /> Download PDF
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
