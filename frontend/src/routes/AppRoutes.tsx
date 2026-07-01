@@ -4,6 +4,8 @@ import { DashboardLayout } from '../layouts/DashboardLayout';
 import { DashboardPage } from '../pages/DashboardPage';
 import { EmployeesPage } from '../pages/EmployeesPage';
 import { IncrementPage } from '../pages/IncrementPage';
+import { AssessmentsPage } from '../pages/AssessmentsPage';
+import { ApprovalsPage } from '../pages/ApprovalsPage';
 import { LandingPage } from '../pages/LandingPage';
 import { LoginPage } from '../pages/LoginPage';
 import { ModulePage } from '../pages/ModulePage';
@@ -23,8 +25,8 @@ export function AppRoutes() {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="increments" element={<IncrementPage />} />
         <Route path="salary-scales" element={<ModulePage title="Salary scales" description="Manage gazette salary scales, points and effective dates." />} />
-        <Route path="assessments" element={<ModulePage title="Performance assessments" description="Prepare and track annual employee assessment forms." />} />
-        <Route path="approvals" element={<ModulePage title="Approvals" description="Review increment and assessment decisions awaiting authorization." />} />
+        <Route path="assessments" element={<AssessmentsPage />} />
+        <Route path="approvals" element={<ApprovalsPage />} />
         <Route path="reports" element={<ModulePage title="Reports" description="View operational summaries and export approved HR records." />} />
         <Route path="users" element={<ModulePage title="Users & roles" description="Manage access, roles and permission assignments." />} />
         <Route path="settings" element={<ModulePage title="Settings" description="Configure integrations, notifications and organization preferences." />} />

@@ -9,14 +9,16 @@ import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
 import { useDataSource } from '../context/DataSourceContext';
 import { EmployeeDataSource, employeeDataSources } from '../constants/dataSources';
+import { getWorkflowCounts } from '../services/api/incrementWorkflows';
+import { WorkflowCounts } from '../types/incrementWorkflow';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
   { icon: Users, label: 'Employees', path: '/employees' },
-  { icon: TrendingUp, label: 'Increments', path: '/increments', badge: '12' },
+  { icon: TrendingUp, label: 'Increments', path: '/increments' },
   { icon: WalletCards, label: 'Salary scales', path: '/salary-scales' },
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
-  { icon: CircleCheck, label: 'Approvals', path: '/approvals', badge: '5' },
+  { icon: CircleCheck, label: 'Approvals', path: '/approvals' },
   { icon: FileText, label: 'Reports', path: '/reports' },
 ];
 
@@ -29,6 +31,11 @@ export function DashboardLayout() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [workflowCounts, setWorkflowCounts] = useState<WorkflowCounts>({
+    increments: 0,
+    assessments: 0,
+    approvals: 0,
+  });
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -40,6 +47,33 @@ export function DashboardLayout() {
     window.addEventListener('keydown', focusSearch);
     return () => window.removeEventListener('keydown', focusSearch);
   }, []);
+
+  useEffect(() => {
+    const loadCounts = async () => {
+      const from = new Date();
+      const to = new Date(from);
+      to.setDate(to.getDate() + 60);
+      const dateValue = (date: Date) =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+      try {
+        setWorkflowCounts(await getWorkflowCounts(dateValue(from), dateValue(to)));
+      } catch {
+        setWorkflowCounts({ increments: 0, assessments: 0, approvals: 0 });
+      }
+    };
+
+    void loadCounts();
+    window.addEventListener('increment-workflow-updated', loadCounts);
+    return () => window.removeEventListener('increment-workflow-updated', loadCounts);
+  }, [dataSource]);
+
+  const badgeForPath = (path: string) => {
+    if (path === '/increments') return workflowCounts.increments;
+    if (path === '/assessments') return workflowCounts.assessments;
+    if (path === '/approvals') return workflowCounts.approvals;
+    return 0;
+  };
 
   const signOut = () => {
     logout();
@@ -57,9 +91,9 @@ export function DashboardLayout() {
         <div className="sidebar__top"><Logo /><button className="mobile-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
         <nav>
           <p className="nav-label">Workspace</p>
-          {navItems.map(({ icon: Icon, label, path, badge }) => (
+          {navItems.map(({ icon: Icon, label, path }) => (
             <NavLink className={({ isActive }) => `nav-item ${isActive ? 'nav-item--active' : ''}`} to={path} key={label} onClick={() => setMenuOpen(false)}>
-              <Icon size={19} /><span>{label}</span>{badge && <b>{badge}</b>}
+              <Icon size={19} /><span>{label}</span>{badgeForPath(path) > 0 && <b>{badgeForPath(path)}</b>}
             </NavLink>
           ))}
           <p className="nav-label nav-label--second">Manage</p>
@@ -102,7 +136,7 @@ export function DashboardLayout() {
             </label>
             <div className="action-menu">
               <button className="icon-button" onClick={() => { setNotificationsOpen(!notificationsOpen); setProfileOpen(false); }} aria-label="Notifications"><Bell size={20} /><i /></button>
-              {notificationsOpen && <div className="popover notification-popover"><strong>Notifications</strong><p>5 assessments need your approval.</p><button onClick={() => navigate('/approvals')}>Review approvals <ArrowRight size={14} /></button></div>}
+              {notificationsOpen && <div className="popover notification-popover"><strong>Notifications</strong><p>{workflowCounts.approvals} assessments need your approval.</p><button onClick={() => navigate('/approvals')}>Review approvals <ArrowRight size={14} /></button></div>}
             </div>
             <span className="topbar__divider" />
             <div className="action-menu">

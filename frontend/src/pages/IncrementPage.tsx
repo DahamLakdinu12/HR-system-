@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Calculator,
   CheckCircle2,
+  ClipboardCheck,
   Download,
   FileText,
   Printer,
@@ -17,6 +18,11 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDueIncrements } from '../services/api/employees';
 import { AssessmentFormPayload, generateAssessmentForm } from '../services/api/increments';
+import {
+  getIncrementWorkflows,
+  moveToAssessment,
+  notifyWorkflowUpdated,
+} from '../services/api/incrementWorkflows';
 import { Employee } from '../types/employee';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
@@ -346,6 +352,7 @@ export function IncrementPage() {
   const [selectedEmployeeNumber, setSelectedEmployeeNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [movingToAssessment, setMovingToAssessment] = useState(false);
   const [usingExport, setUsingExport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
@@ -391,15 +398,25 @@ export function IncrementPage() {
     setAssessmentError(null);
     setUsingExport(false);
 
-    getDueIncrements({
-      from: toDateInput(range.from),
-      to: toDateInput(range.to),
-      page: 1,
-      pageSize: 100,
-    })
-      .then((employees) => {
+    Promise.all([
+      getDueIncrements({
+        from: toDateInput(range.from),
+        to: toDateInput(range.to),
+        page: 1,
+        pageSize: 100,
+      }),
+      getIncrementWorkflows(),
+    ])
+      .then(([employees, workflows]) => {
         if (ignore) return;
-        const sortedRows = sortRows(employees);
+        const blockedEmployees = new Set(
+          workflows
+            .filter((workflow) => !['Draft', 'ReturnedToIncrement'].includes(workflow.status))
+            .map((workflow) => `${workflow.employeeNumber}|${workflow.incrementDate}`),
+        );
+        const sortedRows = sortRows(employees.filter((employee) =>
+          employee.incrementDate &&
+          !blockedEmployees.has(`${employee.employeeNumber}|${employee.incrementDate}`)));
         setRows(sortedRows);
         setSelectedEmployeeNumber(sortedRows[0]?.employeeNumber ?? null);
       })
@@ -494,6 +511,40 @@ export function IncrementPage() {
     }
 
     if (previewPayload) openPrintableAssessmentForm(previewPayload);
+  };
+
+  const handleMoveToAssessment = async () => {
+    if (!previewPayload || !selectedEmployee || previewPayload.salaryPoint === null) return;
+
+    setMovingToAssessment(true);
+    setAssessmentError(null);
+    try {
+      await moveToAssessment({
+        employeeNumber: previewPayload.employeeNumber,
+        payCode: previewPayload.payCode,
+        employeeName: previewPayload.employeeName,
+        designation: previewPayload.designation,
+        grade: previewPayload.grade,
+        department: previewPayload.department,
+        location: previewPayload.location,
+        incrementDate: previewPayload.incrementDate,
+        currentSalary: previewPayload.currentSalary,
+        salaryPoint: previewPayload.salaryPoint,
+        incrementAmount: previewPayload.incrementAmount,
+        convertedSalary: previewPayload.convertedSalary,
+        payableSalary: previewPayload.payableSalary,
+        stagnationAllowance: selectedEmployee.stagnationAllowance,
+      });
+      setRows((current) => current.filter((employee) =>
+        employee.employeeNumber !== previewPayload.employeeNumber));
+      closeAssessmentPreview();
+      notifyWorkflowUpdated();
+      navigate('/assessments');
+    } catch {
+      setAssessmentError('The employee could not be moved to assessment. Refresh the salary details and try again.');
+    } finally {
+      setMovingToAssessment(false);
+    }
   };
 
   return (
@@ -682,6 +733,9 @@ export function IncrementPage() {
               </button>
               <button className="primary-button" onClick={downloadAssessmentPdf} disabled={generating || !previewPdf}>
                 <Download size={16} /> Download PDF
+              </button>
+              <button className="primary-button assessment-submit-button" onClick={() => void handleMoveToAssessment()} disabled={generating || movingToAssessment || !previewPdf}>
+                <ClipboardCheck size={16} /> {movingToAssessment ? 'Moving...' : 'Move to assessment'}
               </button>
             </footer>
           </section>

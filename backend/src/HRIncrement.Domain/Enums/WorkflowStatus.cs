@@ -7,5 +7,6 @@ public enum WorkflowStatus
     PendingApproval = 3,
     Approved = 4,
     Rejected = 5,
-    Finalized = 6
+    Finalized = 6,
+    ReturnedToIncrement = 7
 }

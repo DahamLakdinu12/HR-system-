@@ -55,6 +55,16 @@ From the project root:
 dotnet run --project backend/src/HRIncrement.Api --launch-profile http
 ```
 
+The local `HRIncrement` workflow database has already been migrated. After
+pulling a future migration, apply it before starting the API:
+
+```bash
+ASPNETCORE_ENVIRONMENT=Development dotnet tool run dotnet-ef database update \
+  --project backend/src/HRIncrement.Infrastructure \
+  --startup-project backend/src/HRIncrement.Api \
+  --context ApplicationDbContext
+```
+
 The API runs at:
 
 ```text

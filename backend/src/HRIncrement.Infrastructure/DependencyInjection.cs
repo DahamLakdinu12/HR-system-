@@ -2,6 +2,7 @@ using HRIncrement.Application.Interfaces;
 using HRIncrement.Infrastructure.Data;
 using HRIncrement.Infrastructure.HcmIntegration;
 using HRIncrement.Infrastructure.PdfGeneration;
+using HRIncrement.Infrastructure.Workflows;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddDbContext<HrStaffDbContext>(options =>
             options.UseSqlServer(hrStaffConnection, sql => sql.EnableRetryOnFailure()));
         services.AddScoped<IHcmEmployeeReader, HcmEmployeeReader>();
+        services.AddScoped<IIncrementWorkflowService, IncrementWorkflowService>();
         services.AddScoped<IAssessmentPdfGenerator, AssessmentPdfGenerator>();
         return services;
     }

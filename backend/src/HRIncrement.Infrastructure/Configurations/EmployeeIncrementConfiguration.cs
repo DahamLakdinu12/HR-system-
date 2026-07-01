@@ -11,9 +11,16 @@ public sealed class EmployeeIncrementConfiguration : IEntityTypeConfiguration<Em
         builder.ToTable("EmployeeIncrements");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.EmployeeNumber).HasMaxLength(50).IsRequired();
+        builder.Property(x => x.PayCode).HasMaxLength(50).IsRequired();
+        builder.Property(x => x.EmployeeName).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.Designation).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.Grade).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.Department).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.Location).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.DataSource).HasMaxLength(30).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
         builder.Property(x => x.RowVersion).IsRowVersion();
-        builder.HasIndex(x => new { x.EmployeeNumber, x.DueDate });
+        builder.HasIndex(x => new { x.EmployeeNumber, x.DueDate, x.DataSource }).IsUnique();
         builder.HasIndex(x => x.Status);
 
         builder.OwnsOne(x => x.Calculation, calculation =>
