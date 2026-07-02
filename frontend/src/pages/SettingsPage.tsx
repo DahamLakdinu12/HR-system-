@@ -156,6 +156,38 @@ export function SettingsPage() {
               </div>
             </div>
           </section>
+
+          <section className="panel settings-card">
+            <header>
+              <span className="settings-card__icon settings-card__icon--violet">
+                <Bell size={19} />
+              </span>
+              <div>
+                <h2>Notifications</h2>
+                <p>Choose the HR events that should generate notifications.</p>
+              </div>
+            </header>
+            <div className="settings-card__body settings-toggle-list">
+              <SettingToggle
+                checked={settings.emailNotifications}
+                description="Allow the system to send workflow messages by email."
+                label="Email notifications"
+                onChange={(checked) => update('emailNotifications', checked)}
+              />
+              <SettingToggle
+                checked={settings.approvalNotifications}
+                description="Notify approvers when assessments are waiting for a decision."
+                label="Approval reminders"
+                onChange={(checked) => update('approvalNotifications', checked)}
+              />
+              <SettingToggle
+                checked={settings.monthlyReportNotifications}
+                description="Notify HR when the monthly increment report is ready."
+                label="Monthly report summary"
+                onChange={(checked) => update('monthlyReportNotifications', checked)}
+              />
+            </div>
+          </section>
         </div>
 
         <footer className="settings-actions">
