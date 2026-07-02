@@ -10,6 +10,8 @@ import {
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SettingToggle } from '../components/forms/SettingToggle';
+import { employeeDataSources, EmployeeDataSource } from '../constants/dataSources';
+import { useDataSource } from '../context/DataSourceContext';
 import {
   loadApplicationSettings,
   resetApplicationSettings,
@@ -24,6 +26,7 @@ const months = [
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const { dataSource, setDataSource } = useDataSource();
   const [settings, setSettings] = useState(loadApplicationSettings);
   const [message, setMessage] = useState('');
 
@@ -186,6 +189,40 @@ export function SettingsPage() {
                 label="Monthly report summary"
                 onChange={(checked) => update('monthlyReportNotifications', checked)}
               />
+            </div>
+          </section>
+
+          <section className="panel settings-card">
+            <header>
+              <span className="settings-card__icon settings-card__icon--blue">
+                <Database size={19} />
+              </span>
+              <div>
+                <h2>Workspace</h2>
+                <p>Choose the employee source and preferred table density.</p>
+              </div>
+            </header>
+            <div className="settings-card__body settings-fields">
+              <label className="settings-field settings-field--wide">
+                <span>Default employee data source</span>
+                <select
+                  value={dataSource}
+                  onChange={(event) => setDataSource(event.target.value as EmployeeDataSource)}
+                >
+                  {employeeDataSources.map((source) => (
+                    <option key={source.value} value={source.value}>{source.label}</option>
+                  ))}
+                </select>
+                <small>This selection also updates the data source in the top navigation.</small>
+              </label>
+              <div className="settings-field settings-field--wide">
+                <SettingToggle
+                  checked={settings.compactTables}
+                  description="Use reduced row spacing to display more employee records."
+                  label="Compact table layout"
+                  onChange={(checked) => update('compactTables', checked)}
+                />
+              </div>
             </div>
           </section>
         </div>
