@@ -105,6 +105,18 @@ Use the **Data source** selector in the top bar to choose:
 The selection is saved in the browser and applies to the dashboard, employees,
 departments, increment queues, and generated assessment data.
 
+## Workspace Settings
+
+Open **Settings** from the sidebar to configure organization, increment,
+notification, employee source, and display preferences. Select **Save settings**
+to keep the choices in the current browser. **Restore defaults** removes those
+saved preferences.
+
+These preferences are currently workstation-specific and stored in browser
+local storage. They do not change SQL Server connection strings, authentication,
+gazette rules, or server configuration. The selected employee data source is
+shared with the selector in the top navigation.
+
 ## Reimport the Approved HR Workbook
 
 Install the importer dependency once:

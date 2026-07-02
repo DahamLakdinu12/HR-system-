@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDataSource } from '../context/DataSourceContext';
 import { EmployeeDataSource, employeeDataSources } from '../constants/dataSources';
 import { getWorkflowCounts } from '../services/api/incrementWorkflows';
+import { loadApplicationSettings } from '../services/settingsStorage';
 import { WorkflowCounts } from '../types/incrementWorkflow';
 
 const navItems = [
@@ -46,6 +47,19 @@ export function DashboardLayout() {
     };
     window.addEventListener('keydown', focusSearch);
     return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
+
+  useEffect(() => {
+    const applyDisplaySettings = () => {
+      document.documentElement.classList.toggle(
+        'compact-tables',
+        loadApplicationSettings().compactTables,
+      );
+    };
+
+    applyDisplaySettings();
+    window.addEventListener('application-settings-updated', applyDisplaySettings);
+    return () => window.removeEventListener('application-settings-updated', applyDisplaySettings);
   }, []);
 
   useEffect(() => {
