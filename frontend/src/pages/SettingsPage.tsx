@@ -61,7 +61,57 @@ export function SettingsPage() {
       </section>
 
       <form onSubmit={submit}>
-        <div className="settings-grid" />
+        <div className="settings-grid">
+          <section className="panel settings-card">
+            <header>
+              <span className="settings-card__icon"><Building2 size={19} /></span>
+              <div>
+                <h2>Organization</h2>
+                <p>Details used throughout the HR workspace and documents.</p>
+              </div>
+            </header>
+            <div className="settings-card__body settings-fields">
+              <label className="settings-field settings-field--wide">
+                <span>Organization name</span>
+                <input
+                  value={settings.organizationName}
+                  onChange={(event) => update('organizationName', event.target.value)}
+                  required
+                />
+              </label>
+              <label className="settings-field">
+                <span>Organization code</span>
+                <input
+                  value={settings.organizationCode}
+                  onChange={(event) => update('organizationCode', event.target.value)}
+                  maxLength={12}
+                  required
+                />
+              </label>
+              <label className="settings-field">
+                <span>Currency</span>
+                <select
+                  value={settings.currency}
+                  onChange={(event) => update('currency', event.target.value)}
+                >
+                  <option value="LKR">LKR - Sri Lankan Rupee</option>
+                  <option value="USD">USD - US Dollar</option>
+                </select>
+              </label>
+              <label className="settings-field settings-field--wide">
+                <span>Financial year starts</span>
+                <select
+                  value={settings.financialYearStartMonth}
+                  onChange={(event) => update('financialYearStartMonth', Number(event.target.value))}
+                >
+                  {months.map((month, index) => (
+                    <option key={month} value={index}>{month}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </section>
+        </div>
 
         <footer className="settings-actions">
           <span role="status">{message}</span>
@@ -76,4 +126,3 @@ export function SettingsPage() {
     </main>
   );
 }
-
