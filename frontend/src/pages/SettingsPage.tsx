@@ -111,6 +111,51 @@ export function SettingsPage() {
               </label>
             </div>
           </section>
+
+          <section className="panel settings-card">
+            <header>
+              <span className="settings-card__icon settings-card__icon--amber">
+                <SlidersHorizontal size={19} />
+              </span>
+              <div>
+                <h2>Increment processing</h2>
+                <p>Set the defaults used when preparing increment assessments.</p>
+              </div>
+            </header>
+            <div className="settings-card__body settings-fields">
+              <label className="settings-field">
+                <span>Default increment month</span>
+                <select
+                  value={settings.defaultIncrementMonth}
+                  onChange={(event) => update('defaultIncrementMonth', Number(event.target.value))}
+                >
+                  {months.map((month, index) => (
+                    <option key={month} value={index}>{month}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="settings-field">
+                <span>Reminder period</span>
+                <select
+                  value={settings.assessmentReminderDays}
+                  onChange={(event) => update('assessmentReminderDays', Number(event.target.value))}
+                >
+                  <option value={3}>3 days before</option>
+                  <option value={7}>7 days before</option>
+                  <option value={14}>14 days before</option>
+                  <option value={30}>30 days before</option>
+                </select>
+              </label>
+              <div className="settings-field settings-field--wide">
+                <SettingToggle
+                  checked={settings.requireApproval}
+                  description="Require an authorized approver before an increment is finalized."
+                  label="Approval required"
+                  onChange={(checked) => update('requireApproval', checked)}
+                />
+              </div>
+            </div>
+          </section>
         </div>
 
         <footer className="settings-actions">
