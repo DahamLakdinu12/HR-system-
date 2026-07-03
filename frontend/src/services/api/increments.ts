@@ -12,6 +12,8 @@ export type AssessmentFormPayload = {
   promotionDate: string | null;
   incrementDate: string;
   currentSalary: number;
+  presentBasicSalary: number;
+  presentPayableSalary: number;
   salaryPoint: number | null;
   incrementAmount: number;
   convertedSalary: number;

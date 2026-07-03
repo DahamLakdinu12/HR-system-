@@ -84,6 +84,8 @@ SELECT
         COALESCE(NextIncrementDate, DateOfPromotion, DateJoined)
     ) AS IncrementDate,
     PayableSalary2026 AS CurrentSalary,
+    COALESCE(currentPoint.BasicSalary2027, 0) AS PresentBasicSalary,
+    COALESCE(currentPoint.BasicSalary2026, 0) AS PresentPayableSalary,
     currentPoint.SalaryStep AS SalaryPoint,
     COALESCE(currentPoint.IncrementAmount, employee.IncrementAmount) AS IncrementAmount,
     CASE

@@ -10,6 +10,8 @@ export type Employee = {
   promotionDate: string | null;
   incrementDate: string | null;
   currentSalary: number;
+  presentBasicSalary: number;
+  presentPayableSalary: number;
   salaryPoint: number | null;
   incrementAmount: number;
   convertedSalary: number;

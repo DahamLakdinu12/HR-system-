@@ -111,6 +111,16 @@ def salary_scale_points(grade_code: str) -> list[Decimal]:
     return points
 
 
+def salary_scale_label(grade_code: str) -> str:
+    start, segments = SALARY_SCALE_RULES[grade_code]
+    maximum = salary_scale_points(grade_code)[-1]
+    increments = ", ".join(
+        f"{increment_count} x {increment_value}"
+        for increment_count, increment_value in segments
+    )
+    return f"Rs. {start:,} - {increments} - {int(maximum):,}"
+
+
 def read_sections(workbook_path: Path) -> tuple[list[list[str]], int]:
     workbook = load_workbook(workbook_path, data_only=True, read_only=True)
     if WORKSHEET_NAME not in workbook.sheetnames:
@@ -213,7 +223,7 @@ def read_sections(workbook_path: Path) -> tuple[list[list[str]], int]:
 
             output_rows.append([
                 grade_code,
-                f"{current_scale} {current_grade}".strip(),
+                salary_scale_label(grade_code),
                 str(salary_step),
                 output_decimal(basic_salary_2027),
                 output_decimal(increment_amount),

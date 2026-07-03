@@ -12,6 +12,8 @@ public sealed record EmployeeDto(
     DateOnly? PromotionDate,
     DateOnly? IncrementDate,
     decimal CurrentSalary,
+    decimal PresentBasicSalary,
+    decimal PresentPayableSalary,
     int? SalaryPoint,
     decimal IncrementAmount,
     decimal ConvertedSalary,

@@ -125,6 +125,8 @@ internal sealed class HcmEmployeeReader(
             x.PromotionDate,
             x.IncrementDate,
             x.CurrentSalary,
+            x.PresentBasicSalary,
+            x.PresentPayableSalary,
             x.SalaryPoint,
             x.IncrementAmount,
             x.ConvertedSalary,

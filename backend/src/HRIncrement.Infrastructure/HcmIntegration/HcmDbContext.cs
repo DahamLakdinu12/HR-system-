@@ -17,6 +17,8 @@ internal sealed class HcmDbContext(DbContextOptions<HcmDbContext> options) : DbC
             builder.ToView("vw_HRIncrementEmployees");
             builder.Property(x => x.EmployeeNumber).HasColumnName("EmployeeNumber");
             builder.Property(x => x.CurrentSalary).HasPrecision(19, 4);
+            builder.Property(x => x.PresentBasicSalary).HasPrecision(19, 4);
+            builder.Property(x => x.PresentPayableSalary).HasPrecision(19, 4);
             builder.Property(x => x.IncrementAmount).HasPrecision(19, 4);
             builder.Property(x => x.ConvertedSalary).HasPrecision(19, 4);
             builder.Property(x => x.PayableSalary).HasPrecision(19, 4);
@@ -46,6 +48,8 @@ internal sealed class HcmEmployeeRow
     public DateOnly? PromotionDate { get; init; }
     public DateOnly? IncrementDate { get; init; }
     public decimal CurrentSalary { get; init; }
+    public decimal PresentBasicSalary { get; init; }
+    public decimal PresentPayableSalary { get; init; }
     public int? SalaryPoint { get; init; }
     public decimal IncrementAmount { get; init; }
     public decimal ConvertedSalary { get; init; }

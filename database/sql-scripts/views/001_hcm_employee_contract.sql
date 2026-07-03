@@ -52,6 +52,8 @@ SELECT
             ELSE DATEADD(year, DATEDIFF(year, e.DateOfAppointment, GETDATE()), e.DateOfAppointment)
         END) AS IncrementDate,
     CAST(COALESCE(NULLIF(e.NewSalary, 0), NULLIF(e.Salary, 0), 0) AS decimal(19, 4)) AS CurrentSalary,
+    CAST(0 AS decimal(19, 4)) AS PresentBasicSalary,
+    CAST(0 AS decimal(19, 4)) AS PresentPayableSalary,
     CAST(NULL AS int) AS SalaryPoint,
     CAST(0 AS decimal(19, 4)) AS IncrementAmount,
     CAST(0 AS decimal(19, 4)) AS ConvertedSalary,

@@ -39,6 +39,16 @@ For a matched employee with a following point:
 - `Converted salary` is the next point's new 2027 basic salary.
 - `Payable salary` is the next point's 2026 basic salary.
 
+Assessment section 8 displays:
+
+- present salary from the matched point's `New Basic sal 2027`;
+- present payable salary from the matched point's `Basic Salary 2026`;
+- the grade increment, marked `(Stagnation)` when explicitly authorized;
+- present salary plus increment from the next point's `New Basic sal 2027`; and
+- next payable salary from the next point's `Basic Salary 2026`.
+
+Assessment currency values are rounded to whole rupees and printed with `.00`.
+
 Multi-stage scales change increment rate at the declared boundary. For example,
 `MA-1-2-II` starts at 52,250, uses 630 for the first six annual transitions,
 then uses 1,080 for the following twelve transitions to reach 68,990.

@@ -26,11 +26,17 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
             {
                 document.Page(page =>
                 {
+            var assessmentPeriodStart = assessment.IncrementDate.AddYears(-1);
+            var leavePeriodEnd = assessment.IncrementDate.AddMonths(-1).AddDays(-1);
+            var leavePeriodStart = leavePeriodEnd.AddYears(-1).AddDays(1);
+            var previousYearEnd = new DateOnly(leavePeriodStart.Year, 12, 31);
+            var currentYearStart = new DateOnly(leavePeriodEnd.Year, 1, 1);
+
             page.Size(PageSizes.A4);
             page.MarginTop(22);
             page.MarginHorizontal(38);
-            page.MarginBottom(24);
-            page.DefaultTextStyle(x => x.FontSize(12));
+            page.MarginBottom(30);
+            page.DefaultTextStyle(x => x.FontSize(11));
             page.Header().Column(column =>
             {
                 column.Item().Text("Part I ( To be filled by the HR Department)").FontSize(12);
@@ -39,14 +45,14 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                 column.Item().PaddingTop(10).AlignCenter().Text(text =>
                 {
                     text.Span("Period : From  ");
-                    text.Span(assessment.AppointmentDate.AddYears(-1).ToString("dd/MM/yyyy")).Bold();
+                    text.Span(assessmentPeriodStart.ToString("dd/MM/yyyy")).Bold();
                     text.Span(" to ");
                     text.Span(assessment.IncrementDate.ToString("dd/MM/yyyy")).Bold();
                 });
                 column.Item().PaddingTop(12).LineHorizontal(2).LineColor(Colors.Black);
             });
 
-            page.Content().PaddingTop(34).Column(column =>
+            page.Content().PaddingTop(28).Column(column =>
             {
                 NumberedRow(column, "1.", "Name of employee", assessment.EmployeeName);
                 NumberedRow(column, "2.", "Pay Code No.", assessment.PayCode);
@@ -63,26 +69,23 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                     row.RelativeItem().Column(left =>
                     {
                         left.Item().Text("Present Salary Point");
-                        left.Item().PaddingTop(8).Text(
-                            assessment.SalaryPoint is null
-                                ? Currency(assessment.CurrentSalary)
-                                : $"Step {assessment.SalaryPoint} / {Currency(assessment.CurrentSalary)}");
-                        if (assessment.IsStagnationIncrement)
-                            left.Item().PaddingTop(6).Text("Stagnation increment authorized").Bold();
+                        left.Item().PaddingTop(2).Text(Currency(assessment.PresentBasicSalary));
+                        left.Item().PaddingTop(14).Text("Payable Salary:");
+                        left.Item().PaddingTop(2).Text(Currency(assessment.PresentPayableSalary));
                     });
                     row.RelativeItem().Column(center =>
                     {
-                        center.Item().Text("Amount of Increment due");
-                        center.Item().PaddingTop(8).Text(Currency(assessment.IncrementAmount));
+                        center.Item().AlignCenter().Text("Amount of Increment due");
+                        if (assessment.IsStagnationIncrement)
+                            center.Item().AlignCenter().Text("(Stagnation)").Bold();
+                        center.Item().PaddingTop(2).AlignCenter().Text(Currency(assessment.IncrementAmount));
                     });
                     row.RelativeItem().Column(right =>
                     {
                         right.Item().Text("Present salary plus Increment");
-                        right.Item().PaddingTop(8).Text(Currency(assessment.CurrentSalary + assessment.IncrementAmount));
-                        right.Item().PaddingTop(8).Text("Converted Salary:");
-                        right.Item().PaddingTop(8).Text(Currency(assessment.ConvertedSalary));
-                        right.Item().PaddingTop(8).Text("Payable Salary:");
-                        right.Item().PaddingTop(8).Text(Currency(assessment.PayableSalary));
+                        right.Item().PaddingTop(2).Text(Currency(assessment.ConvertedSalary));
+                        right.Item().PaddingTop(14).Text("Payable Salary:");
+                        right.Item().PaddingTop(2).Text(Currency(assessment.PayableSalary));
                     });
                 });
 
@@ -95,10 +98,10 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                 {
                     row.ConstantItem(32).Text("12.");
                     row.RelativeItem().Text("Particulars of leave during the period :");
-                    row.ConstantItem(230).Text($"From  {assessment.AppointmentDate.AddYears(-1):dd/MM/yyyy} - {assessment.IncrementDate.AddDays(-1):dd/MM/yyyy}");
+                    row.ConstantItem(230).Text($"From  {leavePeriodStart:dd/MM/yyyy} - {leavePeriodEnd:dd/MM/yyyy}");
                 });
 
-                column.Item().PaddingTop(14).Table(table =>
+                column.Item().PaddingTop(10).Table(table =>
                 {
                     table.ColumnsDefinition(columns =>
                     {
@@ -117,14 +120,14 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                     HeaderCell(table, "*No-pay");
                     HeaderCell(table, "Late\nAttendance");
 
-                    table.Cell().Text("Leave availed of in the previous year\n.................................").FontSize(11);
+                    table.Cell().Text($"Leave availed of in the previous year\n{leavePeriodStart:dd/MM/yyyy} - {previousYearEnd:dd/MM/yyyy}").FontSize(10);
                     DotCell(table);
                     DotCell(table);
                     DotCell(table);
                     DotCell(table);
                     DotCell(table);
 
-                    table.Cell().Text("Leave availed of in the current year\n.................................").FontSize(11);
+                    table.Cell().Text($"Leave availed of in the current year\n{currentYearStart:dd/MM/yyyy} - {leavePeriodEnd:dd/MM/yyyy}").FontSize(10);
                     DotCell(table);
                     DotCell(table);
                     DotCell(table);
@@ -132,12 +135,20 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                     DotCell(table);
                 });
 
-                column.Item().PaddingTop(20).Text("* Please indicate whether Medical Certificates have been submitted.");
+                column.Item().PaddingTop(12).Text("* Please indicate whether Medical Certificates have been submitted.");
             });
 
-            page.Footer().AlignCenter().Text(text =>
+            page.Footer().Row(row =>
             {
-                text.Span(DateTime.Today.ToString("dddd, MMMM d, yyyy")).Bold().FontSize(9);
+                row.RelativeItem().AlignBottom().Text(text =>
+                {
+                    text.Span(DateTime.Today.ToString("dddd, MMMM d, yyyy")).Bold().FontSize(9);
+                });
+                row.RelativeItem().AlignRight().Column(column =>
+                {
+                    column.Item().Text("Officer concerned in HR Department").Bold().FontSize(10);
+                    column.Item().Text("for Executive Director (HR & Admin.)").Bold().FontSize(10);
+                });
             });
                 });
             }
@@ -151,7 +162,7 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
         string value,
         string? secondLabel = null,
         string? secondValue = null) =>
-        column.Item().PaddingBottom(14).Row(row =>
+        column.Item().PaddingBottom(10).Row(row =>
         {
             row.ConstantItem(32).Text(number);
             row.ConstantItem(160).Text(label);
@@ -167,7 +178,7 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
         });
 
     private static void LongQuestion(ColumnDescriptor column, string number, string text) =>
-        column.Item().PaddingTop(14).Row(row =>
+        column.Item().PaddingTop(10).Row(row =>
         {
             row.ConstantItem(32).Text(number);
             row.RelativeItem().Text(text);
@@ -179,5 +190,6 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
     private static void DotCell(TableDescriptor table) =>
         table.Cell().AlignCenter().Text("........");
 
-    private static string Currency(decimal amount) => $"Rs. {amount:N2}";
+    private static string Currency(decimal amount) =>
+        $"Rs. {decimal.Round(amount, 0, MidpointRounding.AwayFromZero):N2}";
 }

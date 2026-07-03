@@ -86,6 +86,8 @@ function parseEmployeeExport(text: string): Employee[] {
         promotionDate: promotionDate || null,
         incrementDate: cleanText(incrementDate) || null,
         currentSalary: Number(currentSalary),
+        presentBasicSalary: 0,
+        presentPayableSalary: 0,
         salaryPoint: null,
         incrementAmount: Number(incrementAmount || 0),
         convertedSalary: 0,

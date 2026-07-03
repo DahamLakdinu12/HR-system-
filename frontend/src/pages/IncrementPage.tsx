@@ -96,6 +96,8 @@ function parseEmployeeExport(text: string): Employee[] {
         promotionDate: promotionDate || null,
         incrementDate: cleanText(incrementDate) || null,
         currentSalary: Number(currentSalary),
+        presentBasicSalary: 0,
+        presentPayableSalary: 0,
         salaryPoint: null,
         incrementAmount: Number(incrementAmount || 0),
         convertedSalary: 0,
@@ -156,6 +158,29 @@ function formatMoney(value: number) {
     currency: 'LKR',
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function formatAssessmentMoney(value: number) {
+  const rounded = Math.round(value);
+  return `Rs. ${rounded.toLocaleString('en-LK')}.00`;
+}
+
+function parseAssessmentDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function shiftAssessmentDate(value: string, years: number, months = 0, days = 0) {
+  const date = parseAssessmentDate(value);
+  date.setFullYear(date.getFullYear() + years);
+  date.setMonth(date.getMonth() + months);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function formatAssessmentDate(value: string | Date) {
+  const date = typeof value === 'string' ? parseAssessmentDate(value) : value;
+  return new Intl.DateTimeFormat('en-GB').format(date);
 }
 
 function getIncrementAmount(employee: Employee) {
@@ -248,6 +273,8 @@ function buildAssessmentPayload(
     promotionDate: employee.promotionDate,
     incrementDate: employee.incrementDate,
     currentSalary: employee.currentSalary,
+    presentBasicSalary: employee.presentBasicSalary,
+    presentPayableSalary: employee.presentPayableSalary,
     salaryPoint: employee.salaryPoint,
     incrementAmount,
     convertedSalary: employee.convertedSalary || employee.currentSalary + incrementAmount,
@@ -272,13 +299,18 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
   const formWindow = window.open('', '_blank', 'width=900,height=1200');
   if (!formWindow) return;
 
-  const previousPeriodStart = payload.appointmentDate || payload.incrementDate;
-  const previousPeriodEnd = payload.incrementDate;
-  const currentSalary = formatMoney(payload.currentSalary).replace('LKR', 'Rs.');
-  const incrementAmount = formatMoney(payload.incrementAmount).replace('LKR', 'Rs.');
-  const salaryPlusIncrement = formatMoney(payload.currentSalary + payload.incrementAmount).replace('LKR', 'Rs.');
-  const convertedSalary = formatMoney(payload.convertedSalary).replace('LKR', 'Rs.');
-  const payableSalary = formatMoney(payload.payableSalary).replace('LKR', 'Rs.');
+  const assessmentPeriodStart = shiftAssessmentDate(payload.incrementDate, -1);
+  const leavePeriodEnd = shiftAssessmentDate(payload.incrementDate, 0, -1, -1);
+  const leavePeriodStart = new Date(leavePeriodEnd);
+  leavePeriodStart.setFullYear(leavePeriodStart.getFullYear() - 1);
+  leavePeriodStart.setDate(leavePeriodStart.getDate() + 1);
+  const previousYearEnd = new Date(leavePeriodStart.getFullYear(), 11, 31);
+  const currentYearStart = new Date(leavePeriodEnd.getFullYear(), 0, 1);
+  const presentBasicSalary = formatAssessmentMoney(payload.presentBasicSalary);
+  const presentPayableSalary = formatAssessmentMoney(payload.presentPayableSalary);
+  const incrementAmount = formatAssessmentMoney(payload.incrementAmount);
+  const nextBasicSalary = formatAssessmentMoney(payload.convertedSalary);
+  const nextPayableSalary = formatAssessmentMoney(payload.payableSalary);
 
   formWindow.document.write(`
     <!doctype html>
@@ -305,7 +337,7 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
           th:first-child, td:first-child { text-align: left; width: 38%; }
           .leave-title { display: flex; justify-content: space-between; margin-top: 24px; }
           .note { margin-top: 20px; }
-          .sign { margin-top: 120px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .sign { margin-top: 70px; display: flex; justify-content: space-between; align-items: flex-end; }
           .sign strong { display: block; }
           footer { margin-top: 50px; border-top: 1px solid #777; padding-top: 36px; font-size: 13px; font-weight: 700; }
           @media print { button { display: none; } }
@@ -317,7 +349,7 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
         <div class="top-note">Part I ( To be filled by the HR Department)</div>
         <h1>Board of Investment of Sri Lanka</h1>
         <h2>Performance Assessment (Junior Management)</h2>
-        <div class="period">Period : From&nbsp; <strong>${escapeHtml(formatDate(previousPeriodStart))}</strong> to <strong>${escapeHtml(formatDate(previousPeriodEnd))}</strong></div>
+        <div class="period">Period : From&nbsp; <strong>${escapeHtml(formatAssessmentDate(assessmentPeriodStart))}</strong> to <strong>${escapeHtml(formatAssessmentDate(payload.incrementDate))}</strong></div>
         <div class="rule"></div>
 
         <div class="row simple"><span>1.</span><span>Name of employee</span><span>:</span><span>${escapeHtml(payload.employeeName)}</span></div>
@@ -331,9 +363,9 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
 
         <div class="three">
           <span>8.</span>
-          <div>Present Salary Point<span>${escapeHtml(payload.salaryPoint ? `Step ${payload.salaryPoint} / ${currentSalary}` : currentSalary)}</span></div>
-          <div>Amount of Increment due<span>${escapeHtml(incrementAmount)}</span></div>
-          <div>Present salary plus Increment<span>${escapeHtml(salaryPlusIncrement)}</span><span>Converted Salary:</span><span>${escapeHtml(convertedSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(payableSalary)}</span></div>
+          <div>Present Salary Point<span>${escapeHtml(presentBasicSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(presentPayableSalary)}</span></div>
+          <div>Amount of Increment due${payload.isStagnationIncrement ? '<br/><strong>(Stagnation)</strong>' : ''}<span>${escapeHtml(incrementAmount)}</span></div>
+          <div>Present salary plus Increment<span>${escapeHtml(nextBasicSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(nextPayableSalary)}</span></div>
         </div>
         ${payload.isStagnationIncrement ? '<p><strong>Stagnation increment authorized for an employee remaining in the current grade.</strong></p>' : ''}
 
@@ -342,12 +374,12 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
         <div class="dots">............................................................................................</div>
         <div class="row simple"><span>11.</span><span>Commendations/punishments during the increment period</span><span></span><span></span></div>
 
-        <div class="leave-title"><span>12. &nbsp; Particulars of leave during the period :</span><span>From&nbsp; ${escapeHtml(formatDate(previousPeriodStart))} - ${escapeHtml(formatDate(previousPeriodEnd))}</span></div>
+        <div class="leave-title"><span>12. &nbsp; Particulars of leave during the period :</span><span>From&nbsp; ${escapeHtml(formatAssessmentDate(leavePeriodStart))} - ${escapeHtml(formatAssessmentDate(leavePeriodEnd))}</span></div>
         <table>
           <thead><tr><th></th><th>Casual</th><th>Vacation</th><th>*Sick</th><th>*No-pay</th><th>Late<br/>Attendance</th></tr></thead>
           <tbody>
-            <tr><td>Leave availed of in the previous year<br/>.................................</td><td>........</td><td>........</td><td>........</td><td>........</td><td>........</td></tr>
-            <tr><td>Leave availed of in the current year<br/>.................................</td><td>........</td><td>........</td><td>........</td><td>........</td><td>........</td></tr>
+            <tr><td>Leave availed of in the previous year<br/>${escapeHtml(formatAssessmentDate(leavePeriodStart))} - ${escapeHtml(formatAssessmentDate(previousYearEnd))}</td><td>........</td><td>........</td><td>........</td><td>........</td><td>........</td></tr>
+            <tr><td>Leave availed of in the current year<br/>${escapeHtml(formatAssessmentDate(currentYearStart))} - ${escapeHtml(formatAssessmentDate(leavePeriodEnd))}</td><td>........</td><td>........</td><td>........</td><td>........</td><td>........</td></tr>
           </tbody>
         </table>
         <p class="note">* Please indicate whether Medical Certificates have been submitted.</p>
@@ -813,7 +845,8 @@ export function IncrementPage() {
                 <div><dt>Location</dt><dd>{selectedEmployee.location || selectedEmployee.department || '-'}</dd></div>
                 <div><dt>Increment date</dt><dd>{formatDate(selectedEmployee.incrementDate)}</dd></div>
                 <div><dt>Salary point</dt><dd>{selectedEmployee.salaryPoint ?? '-'}</dd></div>
-                <div><dt>Current salary</dt><dd>{formatMoney(selectedEmployee.currentSalary)}</dd></div>
+                <div><dt>Present salary</dt><dd>{formatMoney(selectedEmployee.presentBasicSalary)}</dd></div>
+                <div><dt>Present payable</dt><dd>{formatMoney(selectedEmployee.presentPayableSalary)}</dd></div>
                 <div><dt>Increment amount</dt><dd>{formatMoney(getIncrementAmount(selectedEmployee))}</dd></div>
                 <div><dt>Converted salary</dt><dd>{formatMoney(selectedEmployee.convertedSalary)}</dd></div>
                 <div><dt>Payable salary</dt><dd>{formatMoney(getPayableSalary(selectedEmployee))}</dd></div>
@@ -871,7 +904,8 @@ export function IncrementPage() {
                   <div><dt>Increment date</dt><dd>{formatDate(previewPayload.incrementDate)}</dd></div>
                   <div><dt>Salary scale</dt><dd>{previewPayload.gazetteReference}</dd></div>
                   <div><dt>Salary point</dt><dd>{previewPayload.salaryPoint ?? '-'}</dd></div>
-                  <div><dt>Current salary</dt><dd>{formatMoney(previewPayload.currentSalary)}</dd></div>
+                  <div><dt>Present salary</dt><dd>{formatMoney(previewPayload.presentBasicSalary)}</dd></div>
+                  <div><dt>Present payable</dt><dd>{formatMoney(previewPayload.presentPayableSalary)}</dd></div>
                   <div><dt>Increment</dt><dd>{formatMoney(previewPayload.incrementAmount)}</dd></div>
                   <div><dt>Converted salary</dt><dd>{formatMoney(previewPayload.convertedSalary)}</dd></div>
                   <div><dt>Payable salary</dt><dd>{formatMoney(previewPayload.payableSalary)}</dd></div>

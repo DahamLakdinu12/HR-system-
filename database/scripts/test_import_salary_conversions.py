@@ -30,7 +30,7 @@ class SalaryConversionWorkbookTests(unittest.TestCase):
 
     def test_imports_first_hm_salary_point(self) -> None:
         self.assertEqual(
-            ["HM-2-3", "HM 2-3 - 2025", "1", "173000", "4850", "127650.5", "150325.25", "0"],
+            ["HM-2-3", "Rs. 173,000 - 12 x 4850 - 231,200", "1", "173000", "4850", "127650.5", "150325.25", "0"],
             self.rows[0],
         )
 
