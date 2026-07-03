@@ -47,19 +47,12 @@ CREATE TABLE dbo.SalaryConversionPoints
     GradeCode nvarchar(100) NOT NULL,
     GazetteCode nvarchar(200) NOT NULL,
     SalaryStep int NOT NULL,
-    PreviousSalary decimal(19,4) NOT NULL,
-    BasicSalary2025 decimal(19,4) NOT NULL,
-    UnpaidAmount2025 decimal(19,4) NOT NULL,
+    BasicSalary2027 decimal(19,4) NOT NULL,
+    IncrementAmount decimal(19,4) NOT NULL,
     PaidSalary2025 decimal(19,4) NOT NULL,
     BasicSalary2026 decimal(19,4) NOT NULL,
-    UnpaidAmount2026 decimal(19,4) NOT NULL,
-    PaidSalary2026 decimal(19,4) NOT NULL,
-    UnpaidAmount2027 decimal(19,4) NOT NULL,
-    PaidSalary2027 decimal(19,4) NOT NULL,
     CONSTRAINT PK_HRStaff_SalaryConversionPoints
-        PRIMARY KEY (GradeCode, SalaryStep),
-    CONSTRAINT UQ_HRStaff_SalaryConversionPoints_GradeSalary
-        UNIQUE (GradeCode, PreviousSalary)
+        PRIMARY KEY (GradeCode, SalaryStep)
 );
 GO
 
@@ -87,19 +80,18 @@ SELECT
     NextIncrementDate AS IncrementDate,
     PayableSalary2026 AS CurrentSalary,
     currentPoint.SalaryStep AS SalaryPoint,
-    CASE
-        WHEN nextPoint.SalaryStep IS NOT NULL
-            THEN nextPoint.PreviousSalary - currentPoint.PreviousSalary
-        ELSE IncrementAmount
+    CASE WHEN nextPoint.SalaryStep IS NOT NULL
+        THEN currentPoint.IncrementAmount
+        ELSE employee.IncrementAmount
     END AS IncrementAmount,
     CASE
-        WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.BasicSalary2026
-        WHEN currentPoint.SalaryStep IS NOT NULL THEN currentPoint.BasicSalary2026
+        WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.BasicSalary2027
+        WHEN currentPoint.SalaryStep IS NOT NULL THEN currentPoint.BasicSalary2027
         ELSE 0
     END AS ConvertedSalary,
     CASE
-        WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.PaidSalary2026
-        WHEN currentPoint.SalaryStep IS NOT NULL THEN currentPoint.PaidSalary2026
+        WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.BasicSalary2026
+        WHEN currentPoint.SalaryStep IS NOT NULL THEN currentPoint.BasicSalary2026
         ELSE 0
     END AS PayableSalary,
     COALESCE(StagnationAllowance, 0) AS StagnationAllowance,
@@ -110,9 +102,21 @@ SELECT
         ELSE 'Unmatched'
     END AS SalaryConversionStatus
 FROM dbo.Employees AS employee
-LEFT JOIN dbo.SalaryConversionPoints AS currentPoint
-    ON currentPoint.GradeCode = employee.NewGrade
-    AND currentPoint.PreviousSalary = employee.SalaryPoint
+OUTER APPLY
+(
+    SELECT TOP (1) candidate.*
+    FROM dbo.SalaryConversionPoints AS candidate
+    WHERE candidate.GradeCode = employee.NewGrade
+      AND
+      (
+          ROUND(candidate.PaidSalary2025, 0) = employee.PayableSalary2026
+          OR ROUND(candidate.BasicSalary2026, 0) = employee.PayableSalary2026
+      )
+    ORDER BY CASE
+        WHEN ROUND(candidate.PaidSalary2025, 0) = employee.PayableSalary2026 THEN 0
+        ELSE 1
+    END
+) AS currentPoint
 OUTER APPLY
 (
     SELECT TOP (1) candidate.*

@@ -162,7 +162,10 @@ internal sealed class IncrementWorkflowService(
             await using var transaction =
                 await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
 
-            var newSalary = workflow.Calculation.CurrentSalary + workflow.Calculation.IncrementAmount;
+            var newSalary = decimal.Round(
+                workflow.Calculation.PayableSalary,
+                0,
+                MidpointRounding.AwayFromZero);
             var affected = await applicationDbContext.Database.ExecuteSqlInterpolatedAsync($"""
                 UPDATE [HRStaff].[dbo].[Employees]
                 SET PayableSalary2026 = {newSalary},
