@@ -170,20 +170,10 @@ def read_sections(workbook_path: Path) -> tuple[list[list[str]], int]:
         stagnation_extension_rows += len(section_rows) - normal_point_count
         final_increment = Decimal(SALARY_SCALE_RULES[grade_code][1][-1][1])
 
-        previous_step: int | None = None
         for point_index, (row_number, point) in enumerate(section_rows):
-            try:
-                salary_step = int(Decimal(str(point[0])))
-            except (InvalidOperation, ValueError) as error:
-                raise ValueError(
-                    f"{grade_code} row {row_number}: invalid salary step {point[0]!r}"
-                ) from error
-            if previous_step is not None and salary_step != previous_step + 1:
-                raise ValueError(
-                    f"{grade_code} row {row_number}: expected step "
-                    f"{previous_step + 1}, found {salary_step}"
-                )
-            previous_step = salary_step
+            # Workbook step labels are not authoritative. Every grade starts
+            # at step 1 and advances by its validated salary row order.
+            salary_step = point_index + 1
 
             basic_salary_2027 = decimal_value(
                 point[1], grade_code, row_number, "New Basic sal 2027"

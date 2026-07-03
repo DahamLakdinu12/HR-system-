@@ -22,7 +22,8 @@ read-only.
 The workflow status and employee update run in one SQL Server transaction. The
 employee update:
 
-- changes `PayableSalary2026` to the approved payable salary;
+- changes `PayableSalary2026` (employee column M) to the approved payable salary;
+- changes `BasicSalary2027` (employee column O) to the approved converted salary;
 - advances `NextIncrementDate` by one year; and
 - increments `NumberOfIncrements`.
 

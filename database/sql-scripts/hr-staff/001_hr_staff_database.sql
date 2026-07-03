@@ -29,7 +29,7 @@ CREATE TABLE dbo.Employees
     NextIncrementDate date NULL,
     PayableSalary2026 decimal(19,4) NOT NULL,
     PostDescription nvarchar(300) NOT NULL,
-    EPFNumber nvarchar(100) NULL,
+    BasicSalary2027 decimal(19,4) NULL,
     SalaryScale nvarchar(300) NULL,
     StartPoint decimal(19,4) NOT NULL,
     IncrementAmount decimal(19,4) NOT NULL,
@@ -111,13 +111,9 @@ OUTER APPLY
     WHERE candidate.GradeCode = employee.NewGrade
       AND
       (
-          ROUND(candidate.PaidSalary2025, 0) = employee.PayableSalary2026
-          OR ROUND(candidate.BasicSalary2026, 0) = employee.PayableSalary2026
+          candidate.BasicSalary2027 = employee.BasicSalary2027
       )
-    ORDER BY CASE
-        WHEN ROUND(candidate.PaidSalary2025, 0) = employee.PayableSalary2026 THEN 0
-        ELSE 1
-    END
+    ORDER BY candidate.SalaryStep
 ) AS currentPoint
 OUTER APPLY
 (

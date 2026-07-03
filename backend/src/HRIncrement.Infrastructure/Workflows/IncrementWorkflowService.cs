@@ -173,6 +173,7 @@ internal sealed class IncrementWorkflowService(
             var affected = await applicationDbContext.Database.ExecuteSqlInterpolatedAsync($"""
                 UPDATE [HRStaff].[dbo].[Employees]
                 SET PayableSalary2026 = {newSalary},
+                    BasicSalary2027 = {workflow.Calculation.ConvertedSalary},
                     NextIncrementDate = DATEADD(year, 1, NextIncrementDate),
                     NumberOfIncrements = COALESCE(NumberOfIncrements, 0) + 1
             WHERE PayCode = {workflow.PayCode}

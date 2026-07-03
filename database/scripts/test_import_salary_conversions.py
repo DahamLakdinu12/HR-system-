@@ -38,7 +38,16 @@ class SalaryConversionWorkbookTests(unittest.TestCase):
         first_jm_grade_two = next(
             row for row in self.rows if row[0] == "JM-1-1-II"
         )
+        self.assertEqual("1", first_jm_grade_two[2])
         self.assertEqual("1360", first_jm_grade_two[4])
+
+    def test_ignores_workbook_step_labels_and_renumbers_each_grade(self) -> None:
+        for grade in {row[0] for row in self.rows}:
+            rows = [row for row in self.rows if row[0] == grade]
+            self.assertEqual(
+                list(range(1, len(rows) + 1)),
+                [int(row[2]) for row in rows],
+            )
 
     def test_ma_two_two_grade_three_matches_pdf_scale(self) -> None:
         rows = [row for row in self.rows if row[0] == "MA-2-2-III"]

@@ -40,6 +40,7 @@ EXPECTED_HEADERS = [
 ]
 
 PAYABLE_SALARY_HEADERS = {"NearestPolice", "NearestPolice (Payable 2026)"}
+BASIC_SALARY_2027_HEADERS = {"EPFNumber", "EPFNumber (2027 Basic)"}
 
 DATE_COLUMNS = {
     "DateOfBirth",
@@ -113,6 +114,18 @@ def clean_payable_salary(value: object) -> str:
         return ""
 
 
+def clean_basic_salary_2027(value: object) -> str:
+    """Extract 2027 basic salary from values such as 'BS 95770'."""
+    text = clean_text(value)
+    if text.upper().startswith("BS"):
+        text = text[2:].strip()
+
+    try:
+        return format(Decimal(text.replace(",", "")), "f")
+    except InvalidOperation:
+        return ""
+
+
 def clean_integer(value: object, column: str, row_number: int) -> str:
     if value in (None, ""):
         return ""
@@ -133,12 +146,15 @@ def main() -> None:
     normalized_headers = headers.copy()
     if len(normalized_headers) > 12 and normalized_headers[12] in PAYABLE_SALARY_HEADERS:
         normalized_headers[12] = "NearestPolice"
+    if len(normalized_headers) > 14 and normalized_headers[14] in BASIC_SALARY_2027_HEADERS:
+        normalized_headers[14] = "EPFNumber"
     if normalized_headers != EXPECTED_HEADERS:
         raise ValueError(f"Unexpected workbook columns: {headers!r}")
 
     seen_pay_codes: set[str] = set()
     imported_rows = 0
     payable_salary_fallbacks = 0
+    missing_basic_salary_2027 = 0
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     with args.output.open("w", encoding="utf-8", newline="") as output:
@@ -176,6 +192,11 @@ def main() -> None:
                         )
                         payable_salary_fallbacks += 1
                     normalized.append(payable_salary)
+                elif column == "EPFNumber":
+                    basic_salary_2027 = clean_basic_salary_2027(value)
+                    if not basic_salary_2027:
+                        missing_basic_salary_2027 += 1
+                    normalized.append(basic_salary_2027)
                 elif column in DATE_COLUMNS:
                     normalized.append(clean_date(value, column, row_number))
                 elif column in DECIMAL_COLUMNS:
@@ -193,6 +214,11 @@ def main() -> None:
         print(
             f"Used SalaryPoint as the current-salary fallback for "
             f"{payable_salary_fallbacks} rows without a valid column M payable amount."
+        )
+    if missing_basic_salary_2027:
+        print(
+            f"Left {missing_basic_salary_2027} rows unmatched because column O "
+            "does not contain a valid 2027 basic salary."
         )
 
 

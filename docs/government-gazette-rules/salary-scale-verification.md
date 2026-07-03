@@ -10,6 +10,11 @@ Verified sources:
 The PDF rule `start + N x increment = maximum` produces `N + 1` salary points,
 because the starting salary is the first point.
 
+The step labels present in the Excel workbook are not used. For every grade,
+the first validated `New Basic sal 2027` row is step 1 and each following row
+increments the step by one. Employee steps are matched from employee column O
+(`EPFNumber (2027 Basic)`) to that 2027 basic salary within the assigned grade.
+
 | Grade | PDF progression | Normal points | Excel rows | Normal | Result |
 |---|---:|---:|---:|---:|---|
 | HM-2-3 | 173,000 + 12 x 4,850 = 231,200 | 13 | 13 | 13 | Match |

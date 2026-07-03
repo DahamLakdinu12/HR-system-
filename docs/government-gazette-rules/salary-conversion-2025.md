@@ -15,9 +15,10 @@ not modify either source document.
 - Basic salary April 2025 (paid amount from 01.01.2025)
 - Basic salary 2026
 
-Employee current salaries are matched against the rounded 2025 paid amount or
-the rounded 2026 basic salary in their assigned grade section. This supports
-employees who are recorded at either approved payment stage.
+Employee salary points are matched by grade and exact 2027 basic salary:
+employee column O (`BS <amount>`) must equal `New Basic sal 2027`. The importer
+does not trust the salary workbook's existing step labels. It numbers each
+grade sequentially from step 1 using the validated salary row order.
 
 ## Source quality rules
 

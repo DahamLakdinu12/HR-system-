@@ -19,17 +19,20 @@ salary for those sections.
 An employee is matched to a conversion point using:
 
 1. The employee's `NewGrade` assigned to the corresponding salary section.
-2. The current salary from employee workbook column M matched to the rounded
-   2025 paid amount or rounded 2026 basic salary.
+2. Employee workbook column O, labelled `EPFNumber` in the source and supplied
+   by HR as `2027 Basic`, matched exactly to `New Basic sal 2027`.
 
 For a matched employee with a following point:
 
-- `Salary point` is the matched worksheet row.
+- `Salary point` is the matched row's position inside its grade. Every grade
+  starts at step 1; step labels supplied by the salary workbook are ignored.
 - `Current salary` is parsed from column M, labelled `NearestPolice` in the
   source workbook and supplied by HR as `Payable 2026`. Values use the
   `PS <amount>` format.
 - If column M does not contain a valid `PS <amount>`, the importer falls back
   to column I and reports the number of affected rows for HR review.
+- If column O does not contain a valid `BS <amount>`, or that 2027 basic salary
+  is absent from the employee's grade table, the employee remains `Unmatched`.
 - `Increment amount` is the current point's new increment value. Where the
   workbook leaves it blank, the importer derives it from consecutive 2027
   basic salary points.
@@ -42,7 +45,8 @@ then uses 1,080 for the following twelve transitions to reach 68,990.
 
 When approval updates the employee record, payable salary is rounded to the
 nearest whole rupee using midpoint-away-from-zero, matching the source
-workbook's column M convention.
+workbook's column M convention. It also advances column O to the approved
+converted 2027 basic salary so the next annual step matches correctly.
 
 Rows above a PDF-defined maximum are marked as stagnation extension points,
 not normal grade steps. They continue using the final increment rate. An
