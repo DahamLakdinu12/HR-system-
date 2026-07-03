@@ -67,6 +67,8 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                             assessment.SalaryPoint is null
                                 ? Currency(assessment.CurrentSalary)
                                 : $"Step {assessment.SalaryPoint} / {Currency(assessment.CurrentSalary)}");
+                        if (assessment.IsStagnationIncrement)
+                            left.Item().PaddingTop(6).Text("Stagnation increment authorized").Bold();
                     });
                     row.RelativeItem().Column(center =>
                     {

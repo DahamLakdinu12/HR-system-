@@ -22,9 +22,14 @@ read-only.
 The workflow status and employee update run in one SQL Server transaction. The
 employee update:
 
-- changes `SalaryPoint` to current salary plus the approved increment;
+- changes `PayableSalary2026` to the approved payable salary;
 - advances `NextIncrementDate` by one year; and
 - increments `NumberOfIncrements`.
+
+For an employee at or above the normal maximum, the workflow stores
+`IsStagnationIncrement = true`. The API rejects the move unless HR explicitly
+authorized the exception in the Increment page. The assessment PDF and approval
+queue identify the decision for review.
 
 The update succeeds only when pay code, current salary, and increment due date
 still match the workflow snapshot. A stale record is rejected without changing

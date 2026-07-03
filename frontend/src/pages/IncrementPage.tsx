@@ -172,6 +172,8 @@ function getConversionLabel(employee: Employee) {
       return 'Gazette applied';
     case 'MaximumPoint':
       return 'Maximum point';
+    case 'Stagnation':
+      return 'Stagnation extension';
     case 'Unmatched':
       return 'Needs mapping';
     default:
@@ -179,8 +181,13 @@ function getConversionLabel(employee: Employee) {
   }
 }
 
-function canGenerateAssessment(employee: Employee) {
-  return employee.salaryConversionStatus === 'Applied';
+function needsStagnationApproval(employee: Employee) {
+  return ['MaximumPoint', 'Stagnation'].includes(employee.salaryConversionStatus);
+}
+
+function canGenerateAssessment(employee: Employee, allowStagnation = false) {
+  return employee.salaryConversionStatus === 'Applied' ||
+    (needsStagnationApproval(employee) && allowStagnation);
 }
 
 function initials(employee: Employee) {
@@ -215,12 +222,15 @@ function escapeHtml(value: string | number | null | undefined) {
     .replaceAll("'", '&#039;');
 }
 
-function buildAssessmentPayload(employee: Employee): AssessmentFormPayload {
+function buildAssessmentPayload(
+  employee: Employee,
+  allowStagnation = false,
+): AssessmentFormPayload {
   if (!employee.incrementDate) throw new Error('An increment date is required to generate an assessment.');
-  if (!canGenerateAssessment(employee)) {
+  if (!canGenerateAssessment(employee, allowStagnation)) {
     throw new Error(
-      employee.salaryConversionStatus === 'MaximumPoint'
-        ? 'This employee is at the maximum salary point and needs a stagnation allowance review.'
+      needsStagnationApproval(employee)
+        ? 'Authorize the employee-specific stagnation increment before generating the assessment.'
         : 'The employee salary does not match the assigned grade conversion table.',
     );
   }
@@ -243,6 +253,7 @@ function buildAssessmentPayload(employee: Employee): AssessmentFormPayload {
     convertedSalary: employee.convertedSalary || employee.currentSalary + incrementAmount,
     payableSalary: getPayableSalary(employee) || employee.currentSalary + incrementAmount,
     gazetteReference: employee.salaryScale || 'Government salary gazette',
+    isStagnationIncrement: allowStagnation,
   };
 }
 
@@ -324,6 +335,7 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
           <div>Amount of Increment due<span>${escapeHtml(incrementAmount)}</span></div>
           <div>Present salary plus Increment<span>${escapeHtml(salaryPlusIncrement)}</span><span>Converted Salary:</span><span>${escapeHtml(convertedSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(payableSalary)}</span></div>
         </div>
+        ${payload.isStagnationIncrement ? '<p><strong>Stagnation increment authorized for an employee remaining in the current grade.</strong></p>' : ''}
 
         <div class="question"><span>9.</span><span>Whether increment involves passing of Efficiency Bar. If so has the Officer qualified himself in all respect (Only for Clerical & Allied grades).</span></div>
         <div class="question"><span>10.</span><span>Whether increment for the previous year has been suspended, stopped or deferred.</span></div>
@@ -372,6 +384,7 @@ export function IncrementPage() {
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [selectedEmployeeNumbers, setSelectedEmployeeNumbers] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<'print' | 'move' | null>(null);
+  const [allowStagnationIncrement, setAllowStagnationIncrement] = useState(false);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
 
   const range = useMemo(() => getMonthRange(selectedMonth), [selectedMonth]);
@@ -472,7 +485,8 @@ export function IncrementPage() {
   const incrementTotal = visibleRows.reduce((total, employee) => total + getIncrementAmount(employee), 0);
   const selectedEmployees = rows.filter((employee) =>
     selectedEmployeeNumbers.has(employee.employeeNumber));
-  const selectableVisibleEmployees = visibleRows.filter(canGenerateAssessment);
+  const selectableVisibleEmployees = visibleRows.filter((employee) =>
+    canGenerateAssessment(employee));
   const allVisibleSelected = selectableVisibleEmployees.length > 0 &&
     selectableVisibleEmployees.every((employee) =>
       selectedEmployeeNumbers.has(employee.employeeNumber));
@@ -508,7 +522,8 @@ export function IncrementPage() {
     });
   };
 
-  const selectedPayloads = () => selectedEmployees.map(buildAssessmentPayload);
+  const selectedPayloads = () =>
+    selectedEmployees.map((employee) => buildAssessmentPayload(employee));
 
   const handlePrintSelected = async () => {
     let payloads: AssessmentFormPayload[];
@@ -575,6 +590,7 @@ export function IncrementPage() {
         convertedSalary: payload.convertedSalary,
         payableSalary: payload.payableSalary,
         stagnationAllowance: employee.stagnationAllowance,
+        isStagnationIncrement: false,
       });
     }));
 
@@ -603,7 +619,7 @@ export function IncrementPage() {
 
     let payload: AssessmentFormPayload;
     try {
-      payload = buildAssessmentPayload(selectedEmployee);
+      payload = buildAssessmentPayload(selectedEmployee, allowStagnationIncrement);
       setAssessmentError(null);
     } catch (assessmentError) {
       setAssessmentError(assessmentError instanceof Error ? assessmentError.message : 'Unable to generate the assessment.');
@@ -665,6 +681,7 @@ export function IncrementPage() {
         convertedSalary: previewPayload.convertedSalary,
         payableSalary: previewPayload.payableSalary,
         stagnationAllowance: selectedEmployee.stagnationAllowance,
+        isStagnationIncrement: allowStagnationIncrement,
       });
       setRows((current) => current.filter((employee) =>
         employee.employeeNumber !== previewPayload.employeeNumber));
@@ -766,7 +783,7 @@ export function IncrementPage() {
                         <td><strong>{formatMoney(employee.currentSalary)}</strong></td>
                         <td><strong>{formatMoney(getIncrementAmount(employee))}</strong></td>
                         <td><span className={employee.salaryConversionStatus === 'Applied' ? 'status status--ready' : 'status status--review'}>{getConversionLabel(employee)}</span></td>
-                        <td><button className="text-button" onClick={() => setSelectedEmployeeNumber(employee.employeeNumber)}>Select</button></td>
+                        <td><button className="text-button" onClick={() => { setSelectedEmployeeNumber(employee.employeeNumber); setAllowStagnationIncrement(false); }}>Select</button></td>
                       </tr>
                     );
                   })}
@@ -805,7 +822,21 @@ export function IncrementPage() {
                 <div><dt>Conversion</dt><dd>{getConversionLabel(selectedEmployee)}</dd></div>
               </dl>
 
-              <button className="primary-button" onClick={handleGenerateAssessment} disabled={generating || !canGenerateAssessment(selectedEmployee)}>
+              {needsStagnationApproval(selectedEmployee) && (
+                <label className="increment-stagnation-option">
+                  <input
+                    type="checkbox"
+                    checked={allowStagnationIncrement}
+                    onChange={(event) => setAllowStagnationIncrement(event.target.checked)}
+                  />
+                  <span>
+                    <strong>Authorize stagnation increment</strong>
+                    <small>Employee remains in this grade and receives the final increment rate.</small>
+                  </span>
+                </label>
+              )}
+
+              <button className="primary-button" onClick={handleGenerateAssessment} disabled={generating || !canGenerateAssessment(selectedEmployee, allowStagnationIncrement)}>
                 {generating ? 'Generating...' : 'Generate assessment'} <ArrowRight size={15} />
               </button>
             </div>
@@ -846,6 +877,7 @@ export function IncrementPage() {
                   <div><dt>Increment</dt><dd>{formatMoney(previewPayload.incrementAmount)}</dd></div>
                   <div><dt>Converted salary</dt><dd>{formatMoney(previewPayload.convertedSalary)}</dd></div>
                   <div><dt>Payable salary</dt><dd>{formatMoney(previewPayload.payableSalary)}</dd></div>
+                  <div><dt>Increment type</dt><dd>{previewPayload.isStagnationIncrement ? 'Stagnation' : 'Normal'}</dd></div>
                 </dl>
               </aside>
 

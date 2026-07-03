@@ -16,7 +16,7 @@ export type Employee = {
   payableSalary: number;
   stagnationAllowance: number;
   salaryScale: string;
-  salaryConversionStatus: 'Applied' | 'MaximumPoint' | 'Unmatched' | 'Unavailable';
+  salaryConversionStatus: 'Applied' | 'MaximumPoint' | 'Stagnation' | 'Unmatched' | 'Unavailable';
 };
 
 export type EmployeeSearchResult = {

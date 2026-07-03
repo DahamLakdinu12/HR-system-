@@ -50,6 +50,36 @@ SECTION_GRADES = {
     ("PL 1 - 2025", "GRADE III"): "PL-1-III",
 }
 
+# Starting salary and increment segments transcribed from the approved
+# Salary Scale.pdf. A segment is (number of annual increments, increment value).
+# The starting salary is the first point, so 18 increments produce 19 points.
+SALARY_SCALE_RULES = {
+    "HM-2-3": (173000, ((12, 4850),)),
+    "HM-2-1": (161140, ((12, 4850),)),
+    "HM-1-3": (152500, ((15, 4100),)),
+    "HM-1-1": (140640, ((15, 4100),)),
+    "MM-1-1-I": (119940, ((14, 3450),)),
+    "MM-1-1-II": (91690, ((16, 2480),)),
+    "JM-1-1-I": (88290, ((17, 2040),)),
+    "JM-1-1-II": (72650, ((15, 1360),)),
+    "MA-1-2-I": (61430, ((7, 1080), (12, 1280))),
+    "MA-1-2-II": (52250, ((6, 630), (12, 1080))),
+    "MA-1-2-III": (46220, ((18, 540),)),
+    "MA-2-2-I": (65950, ((19, 1280),)),
+    "MA-2-2-II": (56570, ((6, 630), (14, 1080))),
+    "MA-2-2-III": (50540, ((18, 540),)),
+    "MA-1-1": (52250, ((6, 630), (12, 890))),
+    "PL-3-I": (54170, ((9, 590), (12, 630))),
+    "PL-3-II": (48720, ((14, 540),)),
+    "PL-3-III": (43280, ((18, 490),)),
+    "PL-2-I": (53190, ((9, 590), (12, 630))),
+    "PL-2-II": (47740, ((14, 540),)),
+    "PL-2-III": (42300, ((18, 490),)),
+    "PL-1-I": (50440, ((6, 540), (15, 590))),
+    "PL-1-II": (45490, ((14, 490),)),
+    "PL-1-III": (40500, ((18, 450),)),
+}
+
 
 def normalize_label(value: object) -> str:
     if value is None:
@@ -72,7 +102,16 @@ def output_decimal(value: Decimal) -> str:
     return format(value, "f")
 
 
-def read_sections(workbook_path: Path) -> list[list[str]]:
+def salary_scale_points(grade_code: str) -> list[Decimal]:
+    start, segments = SALARY_SCALE_RULES[grade_code]
+    points = [Decimal(start)]
+    for increment_count, increment_value in segments:
+        for _ in range(increment_count):
+            points.append(points[-1] + Decimal(increment_value))
+    return points
+
+
+def read_sections(workbook_path: Path) -> tuple[list[list[str]], int]:
     workbook = load_workbook(workbook_path, data_only=True, read_only=True)
     if WORKSHEET_NAME not in workbook.sheetnames:
         raise ValueError(f"Missing worksheet: {WORKSHEET_NAME}")
@@ -83,6 +122,7 @@ def read_sections(workbook_path: Path) -> list[list[str]]:
     current_grade = ""
     imported_sections: set[str] = set()
     output_rows: list[list[str]] = []
+    stagnation_extension_rows = 0
 
     for index, row in enumerate(rows):
         label = normalize_label(row[0])
@@ -120,6 +160,16 @@ def read_sections(workbook_path: Path) -> list[list[str]]:
         if not section_rows:
             raise ValueError(f"{grade_code}: salary section has no points")
 
+        approved_points = salary_scale_points(grade_code)
+        normal_point_count = len(approved_points)
+        if len(section_rows) < normal_point_count:
+            raise ValueError(
+                f"{grade_code}: expected at least {normal_point_count} points "
+                f"from Salary Scale.pdf, found {len(section_rows)}"
+            )
+        stagnation_extension_rows += len(section_rows) - normal_point_count
+        final_increment = Decimal(SALARY_SCALE_RULES[grade_code][1][-1][1])
+
         previous_step: int | None = None
         for point_index, (row_number, point) in enumerate(section_rows):
             try:
@@ -138,6 +188,17 @@ def read_sections(workbook_path: Path) -> list[list[str]]:
             basic_salary_2027 = decimal_value(
                 point[1], grade_code, row_number, "New Basic sal 2027"
             )
+            if point_index < normal_point_count:
+                expected_salary = approved_points[point_index]
+            else:
+                expected_salary = approved_points[-1] + (
+                    final_increment * (point_index - normal_point_count + 1)
+                )
+            if basic_salary_2027 != expected_salary:
+                raise ValueError(
+                    f"{grade_code} row {row_number}: salary progression requires "
+                    f"{expected_salary}, found {basic_salary_2027}"
+                )
             paid_salary_2025 = decimal_value(
                 point[3], grade_code, row_number, "2025 paid salary"
             )
@@ -158,7 +219,7 @@ def read_sections(workbook_path: Path) -> list[list[str]]:
                 )
                 increment_amount = next_basic - basic_salary_2027
             else:
-                increment_amount = Decimal(0)
+                increment_amount = final_increment
 
             output_rows.append([
                 grade_code,
@@ -168,12 +229,13 @@ def read_sections(workbook_path: Path) -> list[list[str]]:
                 output_decimal(increment_amount),
                 output_decimal(paid_salary_2025),
                 output_decimal(basic_salary_2026),
+                "1" if point_index >= normal_point_count else "0",
             ])
 
     missing_sections = set(SECTION_GRADES.values()) - imported_sections
     if missing_sections:
         raise ValueError(f"Missing salary sections: {sorted(missing_sections)}")
-    return output_rows
+    return output_rows, stagnation_extension_rows
 
 
 def main() -> None:
@@ -182,7 +244,7 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
 
-    output_rows = read_sections(args.workbook)
+    output_rows, stagnation_extension_rows = read_sections(args.workbook)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8", newline="") as output:
         writer = csv.writer(
@@ -197,6 +259,11 @@ def main() -> None:
         f"Imported {len(output_rows)} salary points assigned to "
         f"{len(SECTION_GRADES)} employee grades."
     )
+    if stagnation_extension_rows:
+        print(
+            f"Imported {stagnation_extension_rows} post-maximum rows as "
+            "employee-specific stagnation extension points."
+        )
 
 
 if __name__ == "__main__":

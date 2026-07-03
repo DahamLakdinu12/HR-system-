@@ -16,4 +16,5 @@ public sealed record AssessmentFormDto(
     decimal IncrementAmount,
     decimal ConvertedSalary,
     decimal PayableSalary,
-    string GazetteReference);
+    string GazetteReference,
+    bool IsStagnationIncrement = false);

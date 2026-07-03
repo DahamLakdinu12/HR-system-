@@ -17,6 +17,7 @@ export type AssessmentFormPayload = {
   convertedSalary: number;
   payableSalary: number;
   gazetteReference: string;
+  isStagnationIncrement: boolean;
 };
 
 export async function generateAssessmentForm(payload: AssessmentFormPayload) {

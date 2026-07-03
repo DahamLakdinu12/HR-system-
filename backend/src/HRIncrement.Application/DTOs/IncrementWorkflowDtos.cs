@@ -14,7 +14,8 @@ public sealed record MoveToAssessmentRequest(
     decimal IncrementAmount,
     decimal ConvertedSalary,
     decimal PayableSalary,
-    decimal StagnationAllowance);
+    decimal StagnationAllowance,
+    bool IsStagnationIncrement);
 
 public sealed record IncrementWorkflowDto(
     Guid Id,
@@ -33,6 +34,7 @@ public sealed record IncrementWorkflowDto(
     decimal ConvertedSalary,
     decimal PayableSalary,
     decimal StagnationAllowance,
+    bool IsStagnationIncrement,
     string Status,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? ModifiedAtUtc);

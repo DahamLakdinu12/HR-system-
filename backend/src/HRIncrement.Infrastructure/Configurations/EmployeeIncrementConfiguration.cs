@@ -32,6 +32,7 @@ public sealed class EmployeeIncrementConfiguration : IEntityTypeConfiguration<Em
             calculation.Property(x => x.PayableSalary).HasColumnName("PayableSalary").HasPrecision(19, 4);
             calculation.Property(x => x.StagnationAllowance).HasColumnName("StagnationAllowance").HasPrecision(19, 4);
             calculation.Property(x => x.CalculatedAtUtc).HasColumnName("CalculatedAtUtc");
+            calculation.Property(x => x.IsStagnationIncrement).HasColumnName("IsStagnationIncrement");
         });
     }
 }

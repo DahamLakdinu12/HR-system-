@@ -87,7 +87,7 @@ export function AssessmentsPage() {
               <tbody>
                 {rows.map((row, index) => (
                   <tr key={row.id}>
-                    <td><span className={`table-avatar avatar-${index % 4}`}>{row.employeeName.split(' ').slice(0, 2).map((part) => part[0]).join('')}</span><span><strong>{row.employeeName}</strong><small>{row.payCode} · {row.designation}</small></span></td>
+                    <td><span className={`table-avatar avatar-${index % 4}`}>{row.employeeName.split(' ').slice(0, 2).map((part) => part[0]).join('')}</span><span><strong>{row.employeeName}</strong><small>{row.payCode} · {row.designation}{row.isStagnationIncrement ? ' · Stagnation increment' : ''}</small></span></td>
                     <td>{row.grade}</td>
                     <td>{formatDate(row.incrementDate)}</td>
                     <td><strong>{formatMoney(row.incrementAmount)}</strong></td>

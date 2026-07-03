@@ -6,7 +6,9 @@ For the HR staff data source, the system imports the approved employee workbook 
 the salary conversion workbook into separate tables in the `HRStaff` database.
 
 The approved conversion source is `Salary tables for IT.xlsx`. Its consolidated
-`SalTables` worksheet contains 24 grade sections and these fields:
+`SalTables` worksheet contains 24 grade sections. `Salary Scale.pdf` defines
+the permitted starting salary, annual increments, increment counts, and maximum
+salary for those sections.
 
 - Salary step
 - New basic salary 2027
@@ -34,20 +36,32 @@ For a matched employee with a following point:
 - `Converted salary` is the next point's new 2027 basic salary.
 - `Payable salary` is the next point's 2026 basic salary.
 
+Multi-stage scales change increment rate at the declared boundary. For example,
+`MA-1-2-II` starts at 52,250, uses 630 for the first six annual transitions,
+then uses 1,080 for the following twelve transitions to reach 68,990.
+
 When approval updates the employee record, payable salary is rounded to the
 nearest whole rupee using midpoint-away-from-zero, matching the source
 workbook's column M convention.
 
-The assessment form can only be generated when this complete match has status
-`Applied`.
+Rows above a PDF-defined maximum are marked as stagnation extension points,
+not normal grade steps. They continue using the final increment rate. An
+employee at the official maximum receives `MaximumPoint`; an employee already
+on an extension receives `Stagnation`.
+
+`Applied` employees follow the normal scale automatically. `MaximumPoint` and
+`Stagnation` employees require HR to select **Authorize stagnation increment**
+for that individual assessment. They are excluded from bulk selection.
 
 ## Review cases
 
 - `MaximumPoint`: the employee matches the final point in the assigned table.
-  HR must review the stagnation allowance before generating the assessment.
+  HR must explicitly authorize the final-rate stagnation increment.
+- `Stagnation`: the employee is already beyond the normal maximum. HR must
+  explicitly authorize each further annual stagnation increment.
 - `Unmatched`: the grade is assigned but the current salary is not present in
   that table. No conversion or payable salary is invented.
 - `Unavailable`: the selected data source has no approved conversion mapping.
 
-Promotion handling, deferred increments, efficiency bars, leave effects, and
-stagnation allowance decisions still require separately approved rules.
+Promotion handling, deferred increments, efficiency bars, and leave effects
+still require separately approved rules.

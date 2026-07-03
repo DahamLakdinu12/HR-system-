@@ -57,7 +57,9 @@ export function ApprovalsPage() {
     try {
       if (approved) {
         await approveIncrement(row.id);
-        setMessage(`${row.employeeName} was approved and advanced to the next salary point.`);
+        setMessage(row.isStagnationIncrement
+          ? `${row.employeeName}'s stagnation increment was approved.`
+          : `${row.employeeName} was approved and advanced to the next salary point.`);
       } else {
         await rejectIncrement(row.id);
         setMessage(`${row.employeeName} was not approved and remains in the assessment queue.`);
@@ -117,7 +119,7 @@ export function ApprovalsPage() {
               <tbody>
                 {rows.map((row, index) => (
                   <tr key={row.id}>
-                    <td><span className={`table-avatar avatar-${index % 4}`}>{row.employeeName.split(' ').slice(0, 2).map((part) => part[0]).join('')}</span><span><strong>{row.employeeName}</strong><small>{row.payCode} · {row.grade} · {formatDate(row.incrementDate)}</small></span></td>
+                    <td><span className={`table-avatar avatar-${index % 4}`}>{row.employeeName.split(' ').slice(0, 2).map((part) => part[0]).join('')}</span><span><strong>{row.employeeName}</strong><small>{row.payCode} · {row.grade} · {formatDate(row.incrementDate)}{row.isStagnationIncrement ? ' · Stagnation increment' : ''}</small></span></td>
                     <td>{row.salaryPoint}</td>
                     <td>{formatMoney(row.currentSalary)}</td>
                     <td><strong>{formatMoney(row.incrementAmount)}</strong></td>

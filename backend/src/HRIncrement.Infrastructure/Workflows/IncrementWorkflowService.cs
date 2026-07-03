@@ -27,6 +27,8 @@ internal sealed class IncrementWorkflowService(
             dataSource,
             request.EmployeeNumber,
             cancellationToken) ?? throw new KeyNotFoundException("Employee not found.");
+        var requiresStagnationApproval = employee.SalaryConversionStatus is
+            "MaximumPoint" or "Stagnation";
 
         if (!string.Equals(employee.PayCode, request.PayCode, StringComparison.Ordinal) ||
             employee.IncrementDate != request.IncrementDate ||
@@ -35,7 +37,8 @@ internal sealed class IncrementWorkflowService(
             employee.IncrementAmount != request.IncrementAmount ||
             employee.ConvertedSalary != request.ConvertedSalary ||
             employee.PayableSalary != request.PayableSalary ||
-            employee.SalaryConversionStatus != "Applied")
+            employee.SalaryConversionStatus is not ("Applied" or "MaximumPoint" or "Stagnation") ||
+            request.IsStagnationIncrement != requiresStagnationApproval)
         {
             throw new InvalidOperationException(
                 "Employee salary details changed. Refresh the increment page and try again.");
@@ -68,7 +71,8 @@ internal sealed class IncrementWorkflowService(
                     employee.ConvertedSalary,
                     employee.PayableSalary,
                     employee.StagnationAllowance,
-                    timeProvider.GetUtcNow()));
+                    timeProvider.GetUtcNow(),
+                    request.IsStagnationIncrement));
             applicationDbContext.EmployeeIncrements.Add(workflow);
         }
 
@@ -256,6 +260,7 @@ internal sealed class IncrementWorkflowService(
         workflow.Calculation.ConvertedSalary,
         workflow.Calculation.PayableSalary,
         workflow.Calculation.StagnationAllowance,
+        workflow.Calculation.IsStagnationIncrement,
         workflow.Status.ToString(),
         workflow.CreatedAtUtc,
         workflow.ModifiedAtUtc);

@@ -51,6 +51,7 @@ CREATE TABLE dbo.SalaryConversionPoints
     IncrementAmount decimal(19,4) NOT NULL,
     PaidSalary2025 decimal(19,4) NOT NULL,
     BasicSalary2026 decimal(19,4) NOT NULL,
+    IsStagnationPoint bit NOT NULL,
     CONSTRAINT PK_HRStaff_SalaryConversionPoints
         PRIMARY KEY (GradeCode, SalaryStep)
 );
@@ -80,23 +81,24 @@ SELECT
     NextIncrementDate AS IncrementDate,
     PayableSalary2026 AS CurrentSalary,
     currentPoint.SalaryStep AS SalaryPoint,
-    CASE WHEN nextPoint.SalaryStep IS NOT NULL
-        THEN currentPoint.IncrementAmount
-        ELSE employee.IncrementAmount
-    END AS IncrementAmount,
+    COALESCE(currentPoint.IncrementAmount, employee.IncrementAmount) AS IncrementAmount,
     CASE
         WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.BasicSalary2027
-        WHEN currentPoint.SalaryStep IS NOT NULL THEN currentPoint.BasicSalary2027
+        WHEN currentPoint.SalaryStep IS NOT NULL
+            THEN currentPoint.BasicSalary2027 + currentPoint.IncrementAmount
         ELSE 0
     END AS ConvertedSalary,
     CASE
         WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.BasicSalary2026
-        WHEN currentPoint.SalaryStep IS NOT NULL THEN currentPoint.BasicSalary2026
+        WHEN currentPoint.SalaryStep IS NOT NULL
+            THEN employee.PayableSalary2026 + currentPoint.IncrementAmount
         ELSE 0
     END AS PayableSalary,
     COALESCE(StagnationAllowance, 0) AS StagnationAllowance,
     COALESCE(currentPoint.GazetteCode, SalaryScale, '') AS SalaryScale,
     CASE
+        WHEN currentPoint.IsStagnationPoint = 1 THEN 'Stagnation'
+        WHEN nextPoint.IsStagnationPoint = 1 THEN 'MaximumPoint'
         WHEN nextPoint.SalaryStep IS NOT NULL THEN 'Applied'
         WHEN currentPoint.SalaryStep IS NOT NULL THEN 'MaximumPoint'
         ELSE 'Unmatched'

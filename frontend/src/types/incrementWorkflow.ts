@@ -24,6 +24,7 @@ export type IncrementWorkflow = {
   convertedSalary: number;
   payableSalary: number;
   stagnationAllowance: number;
+  isStagnationIncrement: boolean;
   status: IncrementWorkflowStatus;
   createdAtUtc: string;
   modifiedAtUtc: string | null;
@@ -44,6 +45,7 @@ export type MoveToAssessmentRequest = {
   convertedSalary: number;
   payableSalary: number;
   stagnationAllowance: number;
+  isStagnationIncrement: boolean;
 };
 
 export type WorkflowCounts = {

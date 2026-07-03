@@ -88,4 +88,5 @@ public sealed record IncrementCalculation(
     decimal ConvertedSalary,
     decimal PayableSalary,
     decimal StagnationAllowance,
-    DateTimeOffset CalculatedAtUtc);
+    DateTimeOffset CalculatedAtUtc,
+    bool IsStagnationIncrement = false);
