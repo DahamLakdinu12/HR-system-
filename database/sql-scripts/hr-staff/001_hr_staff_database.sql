@@ -78,7 +78,11 @@ SELECT
     WorkLocation AS Location,
     DateJoined AS AppointmentDate,
     DateOfPromotion AS PromotionDate,
-    NextIncrementDate AS IncrementDate,
+    DATEADD(
+        year,
+        YEAR(GETDATE()) - YEAR(COALESCE(NextIncrementDate, DateOfPromotion, DateJoined)),
+        COALESCE(NextIncrementDate, DateOfPromotion, DateJoined)
+    ) AS IncrementDate,
     PayableSalary2026 AS CurrentSalary,
     currentPoint.SalaryStep AS SalaryPoint,
     COALESCE(currentPoint.IncrementAmount, employee.IncrementAmount) AS IncrementAmount,

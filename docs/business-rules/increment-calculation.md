@@ -57,6 +57,17 @@ on an extension receives `Stagnation`.
 `Stagnation` employees require HR to select **Authorize stagnation increment**
 for that individual assessment. They are excluded from bulk selection.
 
+## Annual increment month
+
+Increment dates are annual anniversaries. The HR staff view projects the stored
+increment date's month and day into the current processing year. If the source
+increment date is blank, it uses promotion date, then appointment date. This
+assigns every employee to exactly one January-December increment month.
+
+The frontend retrieves every API page for a selected month. It must not use a
+single 100-row response because high-volume months can contain more than 200
+employees.
+
 ## Review cases
 
 - `MaximumPoint`: the employee matches the final point in the assigned table.

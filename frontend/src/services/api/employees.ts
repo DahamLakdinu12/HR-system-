@@ -28,6 +28,17 @@ export async function getDueIncrements(params: DueIncrementsParams) {
   return response.data;
 }
 
+export async function getAllDueIncrements(params: Omit<DueIncrementsParams, 'page' | 'pageSize'>) {
+  const employees: Employee[] = [];
+  const pageSize = 200;
+
+  for (let page = 1; ; page += 1) {
+    const batch = await getDueIncrements({ ...params, page, pageSize });
+    employees.push(...batch);
+    if (batch.length < pageSize) return employees;
+  }
+}
+
 export async function getDepartments() {
   const response = await apiClient.get<DepartmentSummary[]>('/employees/departments');
   return response.data;

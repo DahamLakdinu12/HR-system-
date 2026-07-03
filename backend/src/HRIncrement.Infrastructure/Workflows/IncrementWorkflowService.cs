@@ -174,11 +174,16 @@ internal sealed class IncrementWorkflowService(
                 UPDATE [HRStaff].[dbo].[Employees]
                 SET PayableSalary2026 = {newSalary},
                     BasicSalary2027 = {workflow.Calculation.ConvertedSalary},
-                    NextIncrementDate = DATEADD(year, 1, NextIncrementDate),
+                    NextIncrementDate = DATEADD(year, 1, {workflow.DueDate}),
                     NumberOfIncrements = COALESCE(NumberOfIncrements, 0) + 1
             WHERE PayCode = {workflow.PayCode}
               AND PayableSalary2026 = {workflow.Calculation.CurrentSalary}
-              AND NextIncrementDate = {workflow.DueDate}
+              AND DATEADD(
+                    year,
+                    YEAR({workflow.DueDate}) -
+                        YEAR(COALESCE(NextIncrementDate, DateOfPromotion, DateJoined)),
+                    COALESCE(NextIncrementDate, DateOfPromotion, DateJoined)
+                  ) = {workflow.DueDate}
             """, cancellationToken);
 
             if (affected != 1)

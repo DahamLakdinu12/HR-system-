@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getDueIncrements, searchEmployees } from '../services/api/employees';
+import { getAllDueIncrements, getDueIncrements, searchEmployees } from '../services/api/employees';
 import { getIncrementWorkflows } from '../services/api/incrementWorkflows';
 import { Employee } from '../types/employee';
 import { useDataSource } from '../context/DataSourceContext';
@@ -184,11 +184,9 @@ export function DashboardPage() {
         }
       });
 
-    getDueIncrements({
+    getAllDueIncrements({
       from: toDateInput(today),
       to: toDateInput(monthEnd),
-      page: 1,
-      pageSize: 200,
     })
       .then(setDueThisMonth)
       .catch(() => setDueThisMonth([]));

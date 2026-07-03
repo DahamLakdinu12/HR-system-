@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getDueIncrements } from '../services/api/employees';
+import { getAllDueIncrements } from '../services/api/employees';
 import {
   AssessmentFormPayload,
   generateAssessmentForm,
@@ -425,11 +425,9 @@ export function IncrementPage() {
     setUsingExport(false);
 
     Promise.all([
-      getDueIncrements({
+      getAllDueIncrements({
         from: toDateInput(range.from),
         to: toDateInput(range.to),
-        page: 1,
-        pageSize: 100,
       }),
       getIncrementWorkflows(),
     ])
