@@ -8,13 +8,17 @@ the salary conversion workbook into separate tables in the `HRStaff` database.
 An employee is matched to a conversion point using:
 
 1. The employee's `NewGrade` assigned to a specific conversion worksheet.
-2. The employee's current `SalaryPoint` matched exactly to the worksheet's
+2. The employee's column I `SalaryPoint` matched exactly to the worksheet's
    `As at 2024.12.31 Basic Salary`.
 
 For a matched employee with a following point:
 
 - `Salary point` is the matched worksheet row.
-- `Current salary` is the employee's 2024 basic salary.
+- `Current salary` is parsed from column M, labelled `NearestPolice` in the
+  source workbook and supplied by HR as `Payable 2026`. Values use the
+  `PS <amount>` format.
+- If column M does not contain a valid `PS <amount>`, the importer falls back
+  to column I and reports the number of affected rows for HR review.
 - `Increment amount` is the next point's 2024 salary minus the current point's
   2024 salary.
 - `Converted salary` is the next point's 2026 basic salary.

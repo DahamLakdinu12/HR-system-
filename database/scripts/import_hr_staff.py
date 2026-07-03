@@ -39,6 +39,8 @@ EXPECTED_HEADERS = [
     "DeptDescription",
 ]
 
+PAYABLE_SALARY_HEADERS = {"NearestPolice", "NearestPolice (Payable 2026)"}
+
 DATE_COLUMNS = {
     "DateOfBirth",
     "DateJoined",
@@ -99,6 +101,18 @@ def clean_allowance(value: object) -> tuple[str, str]:
         return "", text
 
 
+def clean_payable_salary(value: object) -> str:
+    """Extract payable 2026 salary from prefixed or numeric column M values."""
+    text = clean_text(value)
+    if text.upper().startswith("PS"):
+        text = text[2:].strip()
+
+    try:
+        return format(Decimal(text.replace(",", "")), "f")
+    except InvalidOperation:
+        return ""
+
+
 def clean_integer(value: object, column: str, row_number: int) -> str:
     if value in (None, ""):
         return ""
@@ -116,11 +130,15 @@ def main() -> None:
 
     worksheet = load_workbook(args.workbook, data_only=True, read_only=True).active
     headers = [clean_text(cell.value) for cell in next(worksheet.iter_rows(min_row=1, max_row=1))]
-    if headers != EXPECTED_HEADERS:
+    normalized_headers = headers.copy()
+    if len(normalized_headers) > 12 and normalized_headers[12] in PAYABLE_SALARY_HEADERS:
+        normalized_headers[12] = "NearestPolice"
+    if normalized_headers != EXPECTED_HEADERS:
         raise ValueError(f"Unexpected workbook columns: {headers!r}")
 
     seen_pay_codes: set[str] = set()
     imported_rows = 0
+    payable_salary_fallbacks = 0
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     with args.output.open("w", encoding="utf-8", newline="") as output:
@@ -136,7 +154,7 @@ def main() -> None:
             if not any(value not in (None, "") for value in values):
                 continue
 
-            record = dict(zip(headers, values))
+            record = dict(zip(normalized_headers, values))
             pay_code = clean_text(record["Paycode"])
             if not pay_code:
                 raise ValueError(f"Row {row_number}: Paycode is required")
@@ -150,6 +168,14 @@ def main() -> None:
                 if column == "StagnationAllowance":
                     allowance, allowance_note = clean_allowance(value)
                     normalized.extend((allowance, allowance_note))
+                elif column == "NearestPolice":
+                    payable_salary = clean_payable_salary(value)
+                    if not payable_salary:
+                        payable_salary = clean_decimal(
+                            record["SalaryPoint"], "SalaryPoint", row_number
+                        )
+                        payable_salary_fallbacks += 1
+                    normalized.append(payable_salary)
                 elif column in DATE_COLUMNS:
                     normalized.append(clean_date(value, column, row_number))
                 elif column in DECIMAL_COLUMNS:
@@ -163,6 +189,11 @@ def main() -> None:
             imported_rows += 1
 
     print(f"Imported {imported_rows} rows with {len(seen_pay_codes)} unique pay codes.")
+    if payable_salary_fallbacks:
+        print(
+            f"Used SalaryPoint as the current-salary fallback for "
+            f"{payable_salary_fallbacks} rows without a valid column M payable amount."
+        )
 
 
 if __name__ == "__main__":

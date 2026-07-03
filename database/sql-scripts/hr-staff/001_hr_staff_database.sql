@@ -27,7 +27,7 @@ CREATE TABLE dbo.Employees
     StagnationAllowanceNote nvarchar(200) NULL,
     DateRetired date NULL,
     NextIncrementDate date NULL,
-    NearestPolice nvarchar(200) NULL,
+    PayableSalary2026 decimal(19,4) NOT NULL,
     PostDescription nvarchar(300) NOT NULL,
     EPFNumber nvarchar(100) NULL,
     SalaryScale nvarchar(300) NULL,
@@ -85,7 +85,7 @@ SELECT
     DateJoined AS AppointmentDate,
     DateOfPromotion AS PromotionDate,
     NextIncrementDate AS IncrementDate,
-    SalaryPoint AS CurrentSalary,
+    PayableSalary2026 AS CurrentSalary,
     currentPoint.SalaryStep AS SalaryPoint,
     CASE
         WHEN nextPoint.SalaryStep IS NOT NULL
