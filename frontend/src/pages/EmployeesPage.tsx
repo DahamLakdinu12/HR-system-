@@ -1,7 +1,7 @@
-import { ArrowLeft, ArrowRight, Building2, CalendarDays, MapPin, RefreshCw, Search, UserRound, Users, WalletCards, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, CalendarDays, Edit3, MapPin, RefreshCw, Save, Search, UserRound, Users, WalletCards, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getDepartments, searchEmployees } from '../services/api/employees';
+import { getDepartments, searchEmployees, updateEmployee } from '../services/api/employees';
 import { DepartmentSummary, Employee, EmployeeSearchResult } from '../types/employee';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
@@ -9,6 +9,15 @@ import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 const pageSize = 25;
 type SortField = 'employee' | 'payCode' | 'designation' | 'grade' | 'department' | 'location' | 'incrementDate' | 'currentSalary';
 type SortDirection = 'asc' | 'desc';
+type EmployeeEditForm = {
+  designation: string;
+  grade: string;
+  department: string;
+  location: string;
+  appointmentDate: string;
+  promotionDate: string;
+  nextIncrementDate: string;
+};
 
 const sortFields: SortField[] = ['employee', 'payCode', 'designation', 'grade', 'department', 'location', 'incrementDate', 'currentSalary'];
 
@@ -186,6 +195,29 @@ function formatDate(value: string | null) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
+function toDateField(value: string | null) {
+  return value ? value.slice(0, 10) : '';
+}
+
+function deriveIncrementDate(baseDate: string) {
+  if (!baseDate) return '';
+  const [, month, day] = baseDate.split('-');
+  const year = new Date().getFullYear();
+  return `${year}-${month}-${day}`;
+}
+
+function getEditForm(employee: Employee): EmployeeEditForm {
+  return {
+    designation: employee.designation,
+    grade: employee.grade,
+    department: employee.department,
+    location: employee.location,
+    appointmentDate: toDateField(employee.appointmentDate),
+    promotionDate: toDateField(employee.promotionDate),
+    nextIncrementDate: toDateField(employee.incrementDate),
+  };
+}
+
 function formatMoney(value: number) {
   if (!value) return 'Not available';
   return new Intl.NumberFormat('en-LK', {
@@ -230,6 +262,9 @@ export function EmployeesPage() {
   const [departmentsUsingExport, setDepartmentsUsingExport] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [previewEmployee, setPreviewEmployee] = useState<Employee | null>(null);
+  const [editForm, setEditForm] = useState<EmployeeEditForm | null>(null);
+  const [savingEmployee, setSavingEmployee] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     setPayCodeInput(payCode);
@@ -239,7 +274,11 @@ export function EmployeesPage() {
     if (!previewEmployee) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPreviewEmployee(null);
+      if (event.key === 'Escape') {
+        setPreviewEmployee(null);
+        setEditForm(null);
+        setEditError(null);
+      }
     };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -369,6 +408,72 @@ export function EmployeesPage() {
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
     updateRoute(payCodeInput);
+  };
+
+  const closePreview = () => {
+    setPreviewEmployee(null);
+    setEditForm(null);
+    setEditError(null);
+  };
+
+  const startEditing = (employee: Employee) => {
+    setEditForm(getEditForm(employee));
+    setEditError(null);
+  };
+
+  const updateEditField = (field: keyof EmployeeEditForm, value: string) => {
+    setEditForm((current) => {
+      if (!current) return current;
+      if (field === 'promotionDate') {
+        return {
+          ...current,
+          promotionDate: value,
+          nextIncrementDate: deriveIncrementDate(value || current.appointmentDate),
+        };
+      }
+      if (field === 'appointmentDate' && !current.promotionDate) {
+        return {
+          ...current,
+          appointmentDate: value,
+          nextIncrementDate: deriveIncrementDate(value),
+        };
+      }
+      return { ...current, [field]: value };
+    });
+  };
+
+  const handleSaveEmployee = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!previewEmployee || !editForm) return;
+
+    setSavingEmployee(true);
+    setEditError(null);
+    try {
+      const updated = await updateEmployee(previewEmployee.employeeNumber, {
+        designation: editForm.designation,
+        grade: editForm.grade,
+        department: editForm.department,
+        location: editForm.location,
+        appointmentDate: editForm.appointmentDate,
+        promotionDate: editForm.promotionDate || null,
+        nextIncrementDate: editForm.nextIncrementDate || null,
+      });
+
+      setPreviewEmployee(updated);
+      setEditForm(null);
+      setResult((current) => current
+        ? {
+            ...current,
+            items: current.items.map((employee) =>
+              employee.employeeNumber === updated.employeeNumber ? updated : employee),
+          }
+        : current);
+      setRefreshKey((value) => value + 1);
+    } catch {
+      setEditError('Employee details could not be saved. Confirm HR staff database is selected and backend is running.');
+    } finally {
+      setSavingEmployee(false);
+    }
   };
 
   const openDepartment = (departmentName: string) => {
@@ -625,7 +730,7 @@ export function EmployeesPage() {
       )}
 
       {previewEmployee && (
-        <div className="employee-preview-overlay" role="presentation" onMouseDown={() => setPreviewEmployee(null)}>
+        <div className="employee-preview-overlay" role="presentation" onMouseDown={closePreview}>
           <aside
             className="employee-preview-drawer"
             role="dialog"
@@ -639,10 +744,75 @@ export function EmployeesPage() {
                 <h2 id="employee-preview-title">{getEmployeeName(previewEmployee)}</h2>
                 <p>{previewEmployee.designation || 'Designation unavailable'}</p>
               </div>
-              <button onClick={() => setPreviewEmployee(null)} aria-label="Close employee preview"><X size={20} /></button>
+              <div className="employee-preview-header-actions">
+                {dataSource !== 'hcm' && (
+                  <button
+                    className="employee-preview-edit-button"
+                    onClick={() => startEditing(previewEmployee)}
+                    aria-label="Edit employee details"
+                    type="button"
+                  >
+                    <Edit3 size={15} /> Edit
+                  </button>
+                )}
+                <button onClick={closePreview} aria-label="Close employee preview" type="button"><X size={20} /></button>
+              </div>
             </header>
 
             <div className="employee-preview-content">
+              {dataSource === 'hcm' && (
+                <div className="employee-message">HCM is read-only. Switch to HR staff database to edit employee records.</div>
+              )}
+
+              {editForm && (
+                <form className="employee-edit-form" onSubmit={handleSaveEmployee}>
+                  <div className="employee-edit-form__header">
+                    <div>
+                      <h3>Edit employee database</h3>
+                      <p>Saving updates the HRStaff SQL table and recalculates the visible increment date from the database view.</p>
+                    </div>
+                    <button className="primary-button" disabled={savingEmployee} type="submit">
+                      <Save size={15} /> {savingEmployee ? 'Saving...' : 'Save changes'}
+                    </button>
+                  </div>
+
+                  {editError && <div className="employee-message employee-message--error">{editError}</div>}
+
+                  <label>
+                    Designation
+                    <input value={editForm.designation} onChange={(event) => updateEditField('designation', event.target.value)} required />
+                  </label>
+                  <label>
+                    Grade
+                    <input value={editForm.grade} onChange={(event) => updateEditField('grade', event.target.value)} required />
+                  </label>
+                  <label>
+                    Department
+                    <input value={editForm.department} onChange={(event) => updateEditField('department', event.target.value)} />
+                  </label>
+                  <label>
+                    Location
+                    <input value={editForm.location} onChange={(event) => updateEditField('location', event.target.value)} />
+                  </label>
+                  <label>
+                    Appointment date
+                    <input type="date" value={editForm.appointmentDate} onChange={(event) => updateEditField('appointmentDate', event.target.value)} required />
+                  </label>
+                  <label>
+                    Promotion date
+                    <input type="date" value={editForm.promotionDate} onChange={(event) => updateEditField('promotionDate', event.target.value)} />
+                  </label>
+                  <label>
+                    Next increment date
+                    <input type="date" value={editForm.nextIncrementDate} onChange={(event) => updateEditField('nextIncrementDate', event.target.value)} />
+                    <small>Changing promotion date auto-updates this date to the same day/month in the current year.</small>
+                  </label>
+                  <div className="employee-edit-form__actions">
+                    <button className="secondary-button" onClick={() => setEditForm(null)} disabled={savingEmployee} type="button">Cancel</button>
+                  </div>
+                </form>
+              )}
+
               <section className="employee-preview-identity">
                 <span className="employee-preview-avatar">{initials(previewEmployee)}</span>
                 <div><strong>{getEmployeeName(previewEmployee)}</strong><span>{previewEmployee.payCode || previewEmployee.employeeNumber}</span></div>

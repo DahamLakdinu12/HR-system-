@@ -18,6 +18,16 @@ type DueIncrementsParams = {
   pageSize?: number;
 };
 
+export type UpdateEmployeeRequest = {
+  designation: string;
+  grade: string;
+  department: string;
+  location: string;
+  appointmentDate: string;
+  promotionDate: string | null;
+  nextIncrementDate: string | null;
+};
+
 export async function searchEmployees(params: SearchEmployeesParams = {}) {
   const response = await apiClient.get<EmployeeSearchResult>('/employees', { params });
   return response.data;
@@ -41,5 +51,13 @@ export async function getAllDueIncrements(params: Omit<DueIncrementsParams, 'pag
 
 export async function getDepartments() {
   const response = await apiClient.get<DepartmentSummary[]>('/employees/departments');
+  return response.data;
+}
+
+export async function updateEmployee(employeeNumber: string, request: UpdateEmployeeRequest) {
+  const response = await apiClient.put<Employee>(
+    `/employees/${encodeURIComponent(employeeNumber)}`,
+    request,
+  );
   return response.data;
 }

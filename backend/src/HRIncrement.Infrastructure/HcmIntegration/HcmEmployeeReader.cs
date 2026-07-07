@@ -71,6 +71,38 @@ internal sealed class HcmEmployeeReader(
             .SingleOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<EmployeeDto> UpdateHrStaffEmployeeAsync(
+        string employeeNumber,
+        UpdateHrStaffEmployeeRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(employeeNumber);
+        if (request.AppointmentDate == default)
+            throw new InvalidOperationException("Appointment date is required.");
+        if (string.IsNullOrWhiteSpace(request.Designation))
+            throw new InvalidOperationException("Designation is required.");
+        if (string.IsNullOrWhiteSpace(request.Grade))
+            throw new InvalidOperationException("Grade is required.");
+
+        var affected = await hrStaffDbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE dbo.Employees
+            SET PostDescription = {request.Designation.Trim()},
+                NewGrade = {request.Grade.Trim()},
+                Department = {request.Department.Trim()},
+                WorkLocation = {request.Location.Trim()},
+                DateJoined = {request.AppointmentDate},
+                DateOfPromotion = {request.PromotionDate},
+                NextIncrementDate = {request.NextIncrementDate}
+            WHERE PayCode = {employeeNumber.Trim()}
+            """, cancellationToken);
+
+        if (affected != 1)
+            throw new KeyNotFoundException("Employee record not found in the HR staff database.");
+
+        return await GetByEmployeeNumberAsync(EmployeeDataSource.HrStaff, employeeNumber, cancellationToken)
+            ?? throw new KeyNotFoundException("Employee record could not be reloaded after update.");
+    }
+
     public async Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(
         EmployeeDataSource dataSource,
         CancellationToken cancellationToken)

@@ -48,6 +48,37 @@ public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : Con
         return employee is null ? NotFound() : Ok(employee);
     }
 
+    [HttpPut("{employeeNumber}")]
+    [Authorize(Policy = "CanProcessIncrements")]
+    [ProducesResponseType<EmployeeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<EmployeeDto>> UpdateHrStaffEmployee(
+        string employeeNumber,
+        UpdateHrStaffEmployeeRequest request,
+        [FromHeader(Name = DataSourceHeader)] string? dataSource,
+        CancellationToken cancellationToken)
+    {
+        if (ParseDataSource(dataSource) != EmployeeDataSource.HrStaff)
+            return Conflict(new ProblemDetails { Title = "HCM is read-only. Select the HR staff database before editing employees." });
+
+        try
+        {
+            return Ok(await employeeReader.UpdateHrStaffEmployeeAsync(
+                employeeNumber,
+                request,
+                cancellationToken));
+        }
+        catch (KeyNotFoundException error)
+        {
+            return NotFound(new ProblemDetails { Title = error.Message });
+        }
+        catch (InvalidOperationException error)
+        {
+            return Conflict(new ProblemDetails { Title = error.Message });
+        }
+    }
+
     [HttpGet("due-increments")]
     public async Task<ActionResult<IReadOnlyList<EmployeeDto>>> GetDueIncrements(
         [FromQuery] DateOnly from,

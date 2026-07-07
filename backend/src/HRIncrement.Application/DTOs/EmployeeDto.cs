@@ -32,6 +32,15 @@ public sealed record DepartmentSummaryDto(
     string Name,
     int EmployeeCount);
 
+public sealed record UpdateHrStaffEmployeeRequest(
+    string Designation,
+    string Grade,
+    string Department,
+    string Location,
+    DateOnly AppointmentDate,
+    DateOnly? PromotionDate,
+    DateOnly? NextIncrementDate);
+
 public enum EmployeeDataSource
 {
     Hcm,
