@@ -31,6 +31,7 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
             var leavePeriodStart = leavePeriodEnd.AddYears(-1).AddDays(1);
             var previousYearEnd = new DateOnly(leavePeriodStart.Year, 12, 31);
             var currentYearStart = new DateOnly(leavePeriodEnd.Year, 1, 1);
+            var showPayableSalary = assessment.IncrementDate.Year < 2027;
 
             page.Size(PageSizes.A4);
             page.MarginTop(22);
@@ -70,8 +71,11 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                     {
                         left.Item().Text("Present Salary Point");
                         left.Item().PaddingTop(2).Text(Currency(assessment.PresentBasicSalary));
-                        left.Item().PaddingTop(14).Text("Payable Salary:");
-                        left.Item().PaddingTop(2).Text(Currency(assessment.PresentPayableSalary));
+                        if (showPayableSalary)
+                        {
+                            left.Item().PaddingTop(14).Text("Payable Salary:");
+                            left.Item().PaddingTop(2).Text(Currency(assessment.PresentPayableSalary));
+                        }
                     });
                     row.RelativeItem().Column(center =>
                     {
@@ -84,8 +88,11 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                     {
                         right.Item().Text("Present salary plus Increment");
                         right.Item().PaddingTop(2).Text(Currency(assessment.ConvertedSalary));
-                        right.Item().PaddingTop(14).Text("Payable Salary:");
-                        right.Item().PaddingTop(2).Text(Currency(assessment.PayableSalary));
+                        if (showPayableSalary)
+                        {
+                            right.Item().PaddingTop(14).Text("Payable Salary:");
+                            right.Item().PaddingTop(2).Text(Currency(assessment.PayableSalary));
+                        }
                     });
                 });
 

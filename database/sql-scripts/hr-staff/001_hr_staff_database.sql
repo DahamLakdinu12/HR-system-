@@ -86,9 +86,15 @@ SELECT
             COALESCE(DateOfPromotion, DateJoined)
         )
     END AS IncrementDate,
-    PayableSalary2026 AS CurrentSalary,
+    CASE
+        WHEN NextIncrementDate >= '2027-01-01' THEN COALESCE(employee.BasicSalary2027, PayableSalary2026)
+        ELSE PayableSalary2026
+    END AS CurrentSalary,
     COALESCE(currentPoint.BasicSalary2027, 0) AS PresentBasicSalary,
-    COALESCE(currentPoint.BasicSalary2026, 0) AS PresentPayableSalary,
+    CASE
+        WHEN NextIncrementDate >= '2027-01-01' THEN COALESCE(currentPoint.BasicSalary2027, 0)
+        ELSE COALESCE(currentPoint.BasicSalary2026, 0)
+    END AS PresentPayableSalary,
     currentPoint.SalaryStep AS SalaryPoint,
     COALESCE(currentPoint.IncrementAmount, employee.IncrementAmount) AS IncrementAmount,
     CASE
@@ -98,6 +104,9 @@ SELECT
         ELSE 0
     END AS ConvertedSalary,
     CASE
+        WHEN NextIncrementDate >= '2027-01-01' AND nextPoint.SalaryStep IS NOT NULL THEN nextPoint.BasicSalary2027
+        WHEN NextIncrementDate >= '2027-01-01' AND currentPoint.SalaryStep IS NOT NULL
+            THEN currentPoint.BasicSalary2027 + currentPoint.IncrementAmount
         WHEN nextPoint.SalaryStep IS NOT NULL THEN nextPoint.BasicSalary2026
         WHEN currentPoint.SalaryStep IS NOT NULL
             THEN employee.PayableSalary2026 + currentPoint.IncrementAmount

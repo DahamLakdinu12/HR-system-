@@ -147,6 +147,10 @@ function formatDate(value: string | null) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
+function usesSeparatePayableSalary(incrementDate: string | null) {
+  return Boolean(incrementDate && new Date(`${incrementDate}T00:00:00`).getFullYear() < 2027);
+}
+
 function formatMoney(value: number) {
   if (!value) return 'Pending';
   return new Intl.NumberFormat('en-LK', {
@@ -256,6 +260,7 @@ function buildAssessmentPayload(
     );
   }
   const incrementAmount = getIncrementAmount(employee);
+  const hasSeparatePayableSalary = usesSeparatePayableSalary(employee.incrementDate);
 
   return {
     employeeNumber: employee.employeeNumber,
@@ -268,13 +273,15 @@ function buildAssessmentPayload(
     appointmentDate: employee.appointmentDate,
     promotionDate: employee.promotionDate,
     incrementDate: employee.incrementDate,
-    currentSalary: employee.currentSalary,
+    currentSalary: hasSeparatePayableSalary ? employee.currentSalary : employee.presentBasicSalary,
     presentBasicSalary: employee.presentBasicSalary,
-    presentPayableSalary: employee.presentPayableSalary,
+    presentPayableSalary: hasSeparatePayableSalary ? employee.presentPayableSalary : employee.presentBasicSalary,
     salaryPoint: employee.salaryPoint,
     incrementAmount,
     convertedSalary: employee.convertedSalary || employee.currentSalary + incrementAmount,
-    payableSalary: getPayableSalary(employee) || employee.currentSalary + incrementAmount,
+    payableSalary: hasSeparatePayableSalary
+      ? getPayableSalary(employee) || employee.currentSalary + incrementAmount
+      : employee.convertedSalary || employee.presentBasicSalary + incrementAmount,
     gazetteReference: employee.salaryScale || 'Government salary gazette',
     isStagnationIncrement: allowStagnation,
   };
@@ -307,6 +314,7 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
   const incrementAmount = formatAssessmentMoney(payload.incrementAmount);
   const nextBasicSalary = formatAssessmentMoney(payload.convertedSalary);
   const nextPayableSalary = formatAssessmentMoney(payload.payableSalary);
+  const hasSeparatePayableSalary = usesSeparatePayableSalary(payload.incrementDate);
 
   formWindow.document.write(`
     <!doctype html>
@@ -359,9 +367,9 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
 
         <div class="three">
           <span>8.</span>
-          <div>Present Salary Point<span>${escapeHtml(presentBasicSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(presentPayableSalary)}</span></div>
+          <div>Present Salary Point<span>${escapeHtml(presentBasicSalary)}</span>${hasSeparatePayableSalary ? `<span>Payable Salary:</span><span>${escapeHtml(presentPayableSalary)}</span>` : ''}</div>
           <div>Amount of Increment due${payload.isStagnationIncrement ? '<br/><strong>(Stagnation)</strong>' : ''}<span>${escapeHtml(incrementAmount)}</span></div>
-          <div>Present salary plus Increment<span>${escapeHtml(nextBasicSalary)}</span><span>Payable Salary:</span><span>${escapeHtml(nextPayableSalary)}</span></div>
+          <div>Present salary plus Increment<span>${escapeHtml(nextBasicSalary)}</span>${hasSeparatePayableSalary ? `<span>Payable Salary:</span><span>${escapeHtml(nextPayableSalary)}</span>` : ''}</div>
         </div>
         ${payload.isStagnationIncrement ? '<p><strong>Stagnation increment authorized for an employee remaining in the current grade.</strong></p>' : ''}
 
@@ -855,10 +863,14 @@ export function IncrementPage() {
                 <div><dt>Increment date</dt><dd>{formatDate(selectedEmployee.incrementDate)}</dd></div>
                 <div><dt>Salary point</dt><dd>{selectedEmployee.salaryPoint ?? '-'}</dd></div>
                 <div><dt>Present salary</dt><dd>{formatMoney(selectedEmployee.presentBasicSalary)}</dd></div>
-                <div><dt>Present payable</dt><dd>{formatMoney(selectedEmployee.presentPayableSalary)}</dd></div>
+                {usesSeparatePayableSalary(selectedEmployee.incrementDate) && (
+                  <div><dt>Present payable</dt><dd>{formatMoney(selectedEmployee.presentPayableSalary)}</dd></div>
+                )}
                 <div><dt>Increment amount</dt><dd>{formatMoney(getIncrementAmount(selectedEmployee))}</dd></div>
                 <div><dt>Converted salary</dt><dd>{formatMoney(selectedEmployee.convertedSalary)}</dd></div>
-                <div><dt>Payable salary</dt><dd>{formatMoney(getPayableSalary(selectedEmployee))}</dd></div>
+                {usesSeparatePayableSalary(selectedEmployee.incrementDate) && (
+                  <div><dt>Payable salary</dt><dd>{formatMoney(getPayableSalary(selectedEmployee))}</dd></div>
+                )}
                 <div><dt>Conversion</dt><dd>{getConversionLabel(selectedEmployee)}</dd></div>
               </dl>
 
@@ -914,10 +926,14 @@ export function IncrementPage() {
                   <div><dt>Salary scale</dt><dd>{previewPayload.gazetteReference}</dd></div>
                   <div><dt>Salary point</dt><dd>{previewPayload.salaryPoint ?? '-'}</dd></div>
                   <div><dt>Present salary</dt><dd>{formatMoney(previewPayload.presentBasicSalary)}</dd></div>
-                  <div><dt>Present payable</dt><dd>{formatMoney(previewPayload.presentPayableSalary)}</dd></div>
+                  {usesSeparatePayableSalary(previewPayload.incrementDate) && (
+                    <div><dt>Present payable</dt><dd>{formatMoney(previewPayload.presentPayableSalary)}</dd></div>
+                  )}
                   <div><dt>Increment</dt><dd>{formatMoney(previewPayload.incrementAmount)}</dd></div>
                   <div><dt>Converted salary</dt><dd>{formatMoney(previewPayload.convertedSalary)}</dd></div>
-                  <div><dt>Payable salary</dt><dd>{formatMoney(previewPayload.payableSalary)}</dd></div>
+                  {usesSeparatePayableSalary(previewPayload.incrementDate) && (
+                    <div><dt>Payable salary</dt><dd>{formatMoney(previewPayload.payableSalary)}</dd></div>
+                  )}
                   <div><dt>Increment type</dt><dd>{previewPayload.isStagnationIncrement ? 'Stagnation' : 'Normal'}</dd></div>
                 </dl>
               </aside>

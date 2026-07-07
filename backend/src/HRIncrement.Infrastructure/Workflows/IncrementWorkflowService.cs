@@ -166,18 +166,29 @@ internal sealed class IncrementWorkflowService(
             await using var transaction =
                 await applicationDbContext.Database.BeginTransactionAsync(cancellationToken);
 
-            var newSalary = decimal.Round(
+            var newPayableSalary = decimal.Round(
                 workflow.Calculation.PayableSalary,
                 0,
                 MidpointRounding.AwayFromZero);
+            var isSingleSalaryCycle = workflow.DueDate.Year >= 2027;
             var affected = await applicationDbContext.Database.ExecuteSqlInterpolatedAsync($"""
                 UPDATE [HRStaff].[dbo].[Employees]
-                SET PayableSalary2026 = {newSalary},
+                SET PayableSalary2026 = CASE
+                        WHEN {isSingleSalaryCycle} = CAST(1 AS bit)
+                            THEN PayableSalary2026
+                        ELSE {newPayableSalary}
+                    END,
                     BasicSalary2027 = {workflow.Calculation.ConvertedSalary},
                     NextIncrementDate = DATEADD(year, 1, {workflow.DueDate}),
                     NumberOfIncrements = COALESCE(NumberOfIncrements, 0) + 1
             WHERE PayCode = {workflow.PayCode}
-              AND PayableSalary2026 = {workflow.Calculation.CurrentSalary}
+              AND (
+                    ({isSingleSalaryCycle} = CAST(0 AS bit)
+                        AND PayableSalary2026 = {workflow.Calculation.CurrentSalary})
+                    OR
+                    ({isSingleSalaryCycle} = CAST(1 AS bit)
+                        AND BasicSalary2027 = {workflow.Calculation.CurrentSalary})
+                  )
               AND DATEADD(
                     year,
                     YEAR({workflow.DueDate}) -
