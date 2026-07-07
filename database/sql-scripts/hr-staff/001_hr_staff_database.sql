@@ -78,11 +78,14 @@ SELECT
     WorkLocation AS Location,
     DateJoined AS AppointmentDate,
     DateOfPromotion AS PromotionDate,
-    DATEADD(
-        year,
-        YEAR(GETDATE()) - YEAR(COALESCE(NextIncrementDate, DateOfPromotion, DateJoined)),
-        COALESCE(NextIncrementDate, DateOfPromotion, DateJoined)
-    ) AS IncrementDate,
+    CASE
+        WHEN NextIncrementDate IS NOT NULL THEN NextIncrementDate
+        ELSE DATEADD(
+            year,
+            YEAR(GETDATE()) - YEAR(COALESCE(DateOfPromotion, DateJoined)),
+            COALESCE(DateOfPromotion, DateJoined)
+        )
+    END AS IncrementDate,
     PayableSalary2026 AS CurrentSalary,
     COALESCE(currentPoint.BasicSalary2027, 0) AS PresentBasicSalary,
     COALESCE(currentPoint.BasicSalary2026, 0) AS PresentPayableSalary,

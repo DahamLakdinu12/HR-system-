@@ -38,15 +38,12 @@ function toDateInput(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function toMonthInput(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
-
-const incrementYear = new Date().getFullYear();
+const currentIncrementYear = new Date().getFullYear();
+const incrementYears = Array.from({ length: 7 }, (_, index) => currentIncrementYear - 1 + index);
 const incrementMonths = Array.from({ length: 12 }, (_, monthIndex) => {
-  const date = new Date(incrementYear, monthIndex, 1);
+  const date = new Date(currentIncrementYear, monthIndex, 1);
   return {
-    value: toMonthInput(date),
+    value: monthIndex + 1,
     label: new Intl.DateTimeFormat('en-LK', { month: 'long' }).format(date),
   };
 });
@@ -115,8 +112,7 @@ async function loadExportedEmployees() {
   return parseEmployeeExport(await response.text());
 }
 
-function getMonthRange(monthValue: string) {
-  const [yearValue, monthNumberValue] = monthValue.split('-').map(Number);
+function getMonthRange(yearValue: number, monthNumberValue: number) {
   const now = new Date();
   const year = Number.isInteger(yearValue) ? yearValue : now.getFullYear();
   const monthNumber = Number.isInteger(monthNumberValue) && monthNumberValue >= 1 && monthNumberValue <= 12
@@ -400,7 +396,8 @@ export function IncrementPage() {
   const navigate = useNavigate();
   const { dataSource } = useDataSource();
   const sourceLabel = getEmployeeDataSourceLabel(dataSource);
-  const [selectedMonth, setSelectedMonth] = useState(() => toMonthInput(new Date()));
+  const [selectedYear, setSelectedYear] = useState(() => currentIncrementYear);
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [payCodeInput, setPayCodeInput] = useState('');
   const [activePayCode, setActivePayCode] = useState('');
   const [rows, setRows] = useState<Employee[]>([]);
@@ -419,7 +416,7 @@ export function IncrementPage() {
   const [allowStagnationIncrement, setAllowStagnationIncrement] = useState(false);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
 
-  const range = useMemo(() => getMonthRange(selectedMonth), [selectedMonth]);
+  const range = useMemo(() => getMonthRange(selectedYear, selectedMonth), [selectedMonth, selectedYear]);
 
   useEffect(() => {
     if (!previewPdf) {
@@ -529,7 +526,8 @@ export function IncrementPage() {
   const handleRefresh = () => {
     setActivePayCode('');
     setPayCodeInput('');
-    setSelectedMonth(toMonthInput(new Date()));
+    setSelectedYear(currentIncrementYear);
+    setSelectedMonth(new Date().getMonth() + 1);
   };
 
   const toggleEmployeeSelection = (employeeNumber: string) => {
@@ -761,14 +759,25 @@ export function IncrementPage() {
               <CalendarDays size={15} />
               <select
                 value={selectedMonth}
-                onChange={(event) => setSelectedMonth(event.target.value)}
+                onChange={(event) => setSelectedMonth(Number(event.target.value))}
                 aria-label="Increment month"
               >
                 {incrementMonths.map((month) => (
                   <option value={month.value} key={month.value}>{month.label}</option>
                 ))}
               </select>
-              <span>{incrementYear}</span>
+            </label>
+            <label className="filter-button">
+              <select
+                value={selectedYear}
+                onChange={(event) => setSelectedYear(Number(event.target.value))}
+                aria-label="Increment year"
+              >
+                {incrementYears.map((year) => (
+                  <option value={year} key={year}>{year}</option>
+                ))}
+              </select>
+              <span>Year</span>
             </label>
             <button className="filter-button" onClick={handleRefresh}>
               <RefreshCw size={15} /> Reset
