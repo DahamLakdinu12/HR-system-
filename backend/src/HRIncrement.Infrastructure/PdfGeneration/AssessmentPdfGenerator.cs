@@ -158,9 +158,181 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                 });
             });
                 });
+
+                document.Page(page =>
+                {
+                    ComposeFinanceSlipPage(page, assessment);
+                });
             }
         }).GeneratePdf();
     }
+
+    private static void ComposeFinanceSlipPage(PageDescriptor page, AssessmentFormDto assessment)
+    {
+        var showPayableSalary = assessment.IncrementDate.Year < 2027;
+
+        page.Size(PageSizes.A4.Landscape());
+        page.MarginHorizontal(58);
+        page.MarginVertical(40);
+        page.DefaultTextStyle(x => x.FontSize(12));
+
+        page.Content().BorderBottom(1).PaddingBottom(14).Column(column =>
+        {
+            column.Spacing(8);
+
+            column.Item().Row(row =>
+            {
+                row.RelativeItem().Column(left =>
+                {
+                    left.Item()
+                        .Width(126)
+                        .Height(28)
+                        .Background(Colors.Black)
+                        .AlignCenter()
+                        .AlignMiddle()
+                        .Text("CONFIDENTIAL")
+                        .FontColor(Colors.White)
+                        .Bold()
+                        .FontSize(13);
+                    FinanceMemoMetaRow(left, "To", "Director (Finance)", topPadding: 10);
+                    FinanceMemoMetaRow(left, "From", "Executive Director (HR & Admin)");
+                });
+
+                row.RelativeItem().AlignCenter().Text("BOARD OF INVESTMENT OF SRI LANKA").Bold().Underline().FontSize(13);
+
+                row.RelativeItem().AlignRight().Text($"Ref. : EC/PF/{assessment.PayCode}").FontSize(13);
+            });
+
+            column.Item().PaddingTop(18).AlignCenter().Text("I N C R E M E N T").Bold().Underline().FontSize(16);
+
+            FinanceSlipRow(column, "1.", "Name of Employee", assessment.EmployeeName);
+            FinanceSlipRow(column, "2.", "Designation", assessment.Designation, "Grade", assessment.Grade);
+            FinanceSlipRow(column, "3.", "Division/Department/Unit", Division(assessment));
+
+            column.Item().PaddingTop(2).Row(row =>
+            {
+                row.ConstantItem(36).Text("4.").Bold();
+                row.ConstantItem(178).Text("Present salary details").Bold();
+                row.ConstantItem(18).Text(":");
+                row.RelativeItem().Column(details =>
+                {
+                    FinanceSalaryDetail(details, "a.", "Basic Salary", assessment.PresentBasicSalary);
+                    if (showPayableSalary)
+                        FinanceSalaryDetail(details, "b.", "Payable Salary", assessment.PresentPayableSalary);
+                });
+            });
+
+            FinanceSlipRow(column, "5.", "Salary Scale", assessment.GazetteReference);
+
+            column.Item().PaddingTop(8).Row(row =>
+            {
+                row.ConstantItem(36).Text("6.").Bold();
+                row.ConstantItem(178).Text("Annual Increment").Bold();
+                row.ConstantItem(18).Text(":");
+                row.RelativeItem().Text(text =>
+                {
+                    text.Span(Currency(assessment.IncrementAmount)).Bold();
+                    text.Span("  granted from  ");
+                    text.Span(assessment.IncrementDate.ToString("dd.MM.yyyy")).Bold();
+                });
+            });
+
+            column.Item().PaddingTop(8).Row(row =>
+            {
+                row.ConstantItem(36).Text("7.").Bold();
+                row.RelativeItem().Column(details =>
+                {
+                    details.Item().Text("Salary details with annual increment").Bold();
+                    details.Item().PaddingTop(4).Row(detailRow =>
+                    {
+                        detailRow.ConstantItem(178).Text("a.    Basic Salary").Bold();
+                        detailRow.ConstantItem(18).Text(":");
+                        detailRow.RelativeItem().Text(Currency(assessment.ConvertedSalary)).Bold();
+                    });
+                    if (showPayableSalary)
+                    {
+                        details.Item().Row(detailRow =>
+                        {
+                            detailRow.ConstantItem(178).Text("b.    Payable Salary").Bold();
+                            detailRow.ConstantItem(18).Text(":");
+                            detailRow.RelativeItem().Text(Currency(assessment.PayableSalary)).Bold();
+                        });
+                    }
+                });
+            });
+
+            column.Item().PaddingTop(22).Text("Please effect payment; accordingly.").FontSize(13);
+
+            column.Item().PaddingTop(16).Row(row =>
+            {
+                row.RelativeItem().Column(left =>
+                {
+                    FinanceMemoMetaRow(left, "Date.", DateTime.Today.ToString("dd-MMM-yy"));
+                    FinanceMemoMetaRow(left, "cc. -", assessment.EmployeeName);
+                });
+
+                row.ConstantItem(260).PaddingTop(8).Column(signature =>
+                {
+                    signature.Item().LineHorizontal(1);
+                    signature.Item().PaddingTop(3).Text("Executive Director (HR & Admin)").FontSize(12);
+                });
+            });
+        });
+    }
+
+    private static string Division(AssessmentFormDto assessment)
+    {
+        if (string.IsNullOrWhiteSpace(assessment.Location) || assessment.Location == "-")
+            return assessment.Department;
+
+        if (string.IsNullOrWhiteSpace(assessment.Department) || assessment.Department == "-")
+            return assessment.Location;
+
+        return $"{assessment.Department} - {assessment.Location}";
+    }
+
+    private static void FinanceSlipRow(
+        ColumnDescriptor column,
+        string number,
+        string label,
+        string value,
+        string? secondLabel = null,
+        string? secondValue = null) =>
+        column.Item().PaddingTop(8).Row(row =>
+        {
+            row.ConstantItem(36).Text(number).Bold();
+            row.ConstantItem(178).Text(label).Bold();
+            row.ConstantItem(18).Text(":");
+            row.RelativeItem().Text(value).Bold();
+
+            if (!string.IsNullOrWhiteSpace(secondLabel))
+            {
+                row.ConstantItem(70).Text(secondLabel).Bold();
+                row.ConstantItem(18).Text(":");
+                row.ConstantItem(150).Text(secondValue ?? string.Empty).Bold();
+            }
+        });
+
+    private static void FinanceMemoMetaRow(
+        ColumnDescriptor column,
+        string label,
+        string value,
+        int topPadding = 0) =>
+        column.Item().PaddingTop(topPadding).Row(row =>
+        {
+            row.ConstantItem(54).Text(label).Bold();
+            row.ConstantItem(14).Text(":");
+            row.RelativeItem().Text(value).Bold();
+        });
+
+    private static void FinanceSalaryDetail(ColumnDescriptor column, string number, string label, decimal amount) =>
+        column.Item().Row(row =>
+        {
+            row.ConstantItem(26).Text(number).Bold();
+            row.ConstantItem(145).Text(label).Bold();
+            row.ConstantItem(18).Text(":");
+            row.RelativeItem().Text(Currency(amount)).Bold();
+        });
 
     private static void NumberedRow(
         ColumnDescriptor column,
