@@ -101,7 +101,7 @@ export function DashboardLayout() {
   return (
     <div className="app-shell">
       <aside className={`sidebar ${menuOpen ? 'sidebar--open' : ''}`}>
-        <div className="sidebar__top"><Logo /><button className="mobile-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
+        <div className="sidebar__top"><button className="sidebar-logo-button" onClick={() => { navigate('/dashboard'); setMenuOpen(false); }} aria-label="Go to overview"><Logo /></button><button className="mobile-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
         <nav>
           <p className="nav-label">Workspace</p>
           {navItems.map(({ icon: Icon, label, path }) => (
