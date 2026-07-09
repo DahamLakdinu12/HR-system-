@@ -247,6 +247,11 @@ function escapeHtml(value: string | number | null | undefined) {
     .replaceAll("'", '&#039;');
 }
 
+function formatLeaveValue(value: string | number | null | undefined) {
+  const text = String(value ?? '').trim();
+  return text || '........';
+}
+
 function buildAssessmentPayload(
   employee: Employee,
   allowStagnation = false,
@@ -283,6 +288,7 @@ function buildAssessmentPayload(
       ? getPayableSalary(employee) || employee.currentSalary + incrementAmount
       : employee.convertedSalary || employee.presentBasicSalary + incrementAmount,
     gazetteReference: employee.salaryScale || 'Government salary gazette',
+    leaveParticulars: null,
     isStagnationIncrement: allowStagnation,
   };
 }
@@ -315,6 +321,8 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
   const nextBasicSalary = formatAssessmentMoney(payload.convertedSalary);
   const nextPayableSalary = formatAssessmentMoney(payload.payableSalary);
   const hasSeparatePayableSalary = usesSeparatePayableSalary(payload.incrementDate);
+  const previousLeave = payload.leaveParticulars?.previousYear;
+  const currentLeave = payload.leaveParticulars?.currentYear;
 
   formWindow.document.write(`
     <!doctype html>
@@ -382,8 +390,8 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
         <table>
           <thead><tr><th></th><th>Casual</th><th>Vacation</th><th>*Sick</th><th>*No-pay</th><th>Late<br/>Attendance</th></tr></thead>
           <tbody>
-            <tr><td>Leave availed of in the previous year<br/>${escapeHtml(formatAssessmentDate(leavePeriodStart))} - ${escapeHtml(formatAssessmentDate(previousYearEnd))}</td><td>........</td><td>........</td><td>........</td><td>........</td><td>........</td></tr>
-            <tr><td>Leave availed of in the current year<br/>${escapeHtml(formatAssessmentDate(currentYearStart))} - ${escapeHtml(formatAssessmentDate(leavePeriodEnd))}</td><td>........</td><td>........</td><td>........</td><td>........</td><td>........</td></tr>
+            <tr><td>Leave availed of in the previous year<br/>${escapeHtml(formatAssessmentDate(leavePeriodStart))} - ${escapeHtml(formatAssessmentDate(previousYearEnd))}</td><td>${escapeHtml(formatLeaveValue(previousLeave?.casual))}</td><td>${escapeHtml(formatLeaveValue(previousLeave?.vacation))}</td><td>${escapeHtml(formatLeaveValue(previousLeave?.sick))}</td><td>${escapeHtml(formatLeaveValue(previousLeave?.noPay))}</td><td>${escapeHtml(formatLeaveValue(previousLeave?.lateAttendance))}</td></tr>
+            <tr><td>Leave availed of in the current year<br/>${escapeHtml(formatAssessmentDate(currentYearStart))} - ${escapeHtml(formatAssessmentDate(leavePeriodEnd))}</td><td>${escapeHtml(formatLeaveValue(currentLeave?.casual))}</td><td>${escapeHtml(formatLeaveValue(currentLeave?.vacation))}</td><td>${escapeHtml(formatLeaveValue(currentLeave?.sick))}</td><td>${escapeHtml(formatLeaveValue(currentLeave?.noPay))}</td><td>${escapeHtml(formatLeaveValue(currentLeave?.lateAttendance))}</td></tr>
           </tbody>
         </table>
         <p class="note">* Please indicate whether Medical Certificates have been submitted.</p>

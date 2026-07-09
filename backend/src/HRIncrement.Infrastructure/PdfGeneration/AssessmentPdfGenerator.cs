@@ -128,18 +128,18 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
                     HeaderCell(table, "Late\nAttendance");
 
                     table.Cell().Text($"Leave availed of in the previous year\n{leavePeriodStart:dd/MM/yyyy} - {previousYearEnd:dd/MM/yyyy}").FontSize(10);
-                    DotCell(table);
-                    DotCell(table);
-                    DotCell(table);
-                    DotCell(table);
-                    DotCell(table);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.PreviousYear?.Casual);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.PreviousYear?.Vacation);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.PreviousYear?.Sick);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.PreviousYear?.NoPay);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.PreviousYear?.LateAttendance);
 
                     table.Cell().Text($"Leave availed of in the current year\n{currentYearStart:dd/MM/yyyy} - {leavePeriodEnd:dd/MM/yyyy}").FontSize(10);
-                    DotCell(table);
-                    DotCell(table);
-                    DotCell(table);
-                    DotCell(table);
-                    DotCell(table);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.CurrentYear?.Casual);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.CurrentYear?.Vacation);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.CurrentYear?.Sick);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.CurrentYear?.NoPay);
+                    LeaveValueCell(table, assessment.LeaveParticulars?.CurrentYear?.LateAttendance);
                 });
 
                 column.Item().PaddingTop(12).Text("* Please indicate whether Medical Certificates have been submitted.");
@@ -366,8 +366,8 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
     private static void HeaderCell(TableDescriptor table, string text) =>
         table.Cell().AlignCenter().Text(text).Bold();
 
-    private static void DotCell(TableDescriptor table) =>
-        table.Cell().AlignCenter().Text("........");
+    private static void LeaveValueCell(TableDescriptor table, string? value) =>
+        table.Cell().AlignCenter().Text(string.IsNullOrWhiteSpace(value) ? "........" : value.Trim());
 
     private static string Currency(decimal amount) =>
         $"Rs. {decimal.Round(amount, 0, MidpointRounding.AwayFromZero):N2}";

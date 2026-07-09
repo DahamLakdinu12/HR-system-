@@ -19,4 +19,16 @@ public sealed record AssessmentFormDto(
     decimal ConvertedSalary,
     decimal PayableSalary,
     string GazetteReference,
+    AssessmentLeaveParticularsDto? LeaveParticulars = null,
     bool IsStagnationIncrement = false);
+
+public sealed record AssessmentLeaveParticularsDto(
+    AssessmentLeavePeriodDto? PreviousYear = null,
+    AssessmentLeavePeriodDto? CurrentYear = null);
+
+public sealed record AssessmentLeavePeriodDto(
+    string? Casual = null,
+    string? Vacation = null,
+    string? Sick = null,
+    string? NoPay = null,
+    string? LateAttendance = null);

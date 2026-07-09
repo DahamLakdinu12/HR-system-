@@ -1,5 +1,18 @@
 import { apiClient } from './client';
 
+export type AssessmentLeavePeriodPayload = {
+  casual?: string | number | null;
+  vacation?: string | number | null;
+  sick?: string | number | null;
+  noPay?: string | number | null;
+  lateAttendance?: string | number | null;
+};
+
+export type AssessmentLeaveParticularsPayload = {
+  previousYear?: AssessmentLeavePeriodPayload | null;
+  currentYear?: AssessmentLeavePeriodPayload | null;
+};
+
 export type AssessmentFormPayload = {
   employeeNumber: string;
   payCode: string;
@@ -19,6 +32,7 @@ export type AssessmentFormPayload = {
   convertedSalary: number;
   payableSalary: number;
   gazetteReference: string;
+  leaveParticulars?: AssessmentLeaveParticularsPayload | null;
   isStagnationIncrement: boolean;
 };
 

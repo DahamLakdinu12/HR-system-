@@ -27,7 +27,9 @@ public static class DependencyInjection
             options.UseSqlServer(hcmConnection, sql => sql.EnableRetryOnFailure()));
         services.AddDbContext<HrStaffDbContext>(options =>
             options.UseSqlServer(hrStaffConnection, sql => sql.EnableRetryOnFailure()));
+        services.AddSingleton<HttpClient>();
         services.AddScoped<IHcmEmployeeReader, HcmEmployeeReader>();
+        services.AddScoped<IAssessmentLeaveParticularsProvider, HcmLeaveParticularsProvider>();
         services.AddScoped<IIncrementWorkflowService, IncrementWorkflowService>();
         services.AddScoped<ReportDataReader>();
         services.AddScoped<IReportsService, ReportsService>();

@@ -50,6 +50,7 @@ public sealed class AssessmentPdfGeneratorTests
             57200m,
             52583.5m,
             "Rs. 56,570 - 6 x 630, 14 x 1080 - 75,470",
+            null,
             false));
 
         var pdfText = Encoding.Latin1.GetString(pdf);
