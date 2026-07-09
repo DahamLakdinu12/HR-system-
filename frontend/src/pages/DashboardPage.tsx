@@ -321,7 +321,7 @@ export function DashboardPage() {
   return (
     <main className="dashboard">
       <section className="welcome-row">
-        <div><span className="eyebrow">{new Intl.DateTimeFormat('en-LK', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}</span><h1>Good morning, Kavindi.</h1><p>Here’s what’s happening across your HR workspace today.</p></div>
+        <div><span className="eyebrow">{new Intl.DateTimeFormat('en-LK', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}</span><h1>Good morning, Admin.</h1><p>Here’s what’s happening across your HR workspace today.</p></div>
         <button className="primary-button" onClick={() => navigate('/increments')}><TrendingUp size={18} /> Process increments</button>
       </section>
 
