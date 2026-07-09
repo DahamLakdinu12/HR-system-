@@ -1,4 +1,4 @@
-export type EmployeeDataSource = 'hr-staff' | 'hcm';
+export type EmployeeDataSource = 'hr-staff';
 
 export const employeeDataSourceStorageKey = 'hr-increment.employee-data-source';
 
@@ -8,7 +8,6 @@ export const employeeDataSources: Array<{
   shortLabel: string;
 }> = [
   { value: 'hr-staff', label: 'HR staff database', shortLabel: 'HR Staff' },
-  { value: 'hcm', label: 'HCM database', shortLabel: 'HCM' },
 ];
 
 export function getEmployeeDataSourceLabel(source: EmployeeDataSource) {

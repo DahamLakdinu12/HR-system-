@@ -2,7 +2,7 @@ services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     platform: linux/amd64
-    container_name: hcm-sqlserver
+    container_name: hr-sqlserver
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
@@ -11,8 +11,7 @@ services:
     ports:
       - "1433:1433"
     volumes:
-      - hcm-sql-data:/var/opt/mssql
-      - "${HCM_BACKUP_DIR}:/var/opt/mssql/backup:ro"
+      - hr-sql-data:/var/opt/mssql
     healthcheck:
       test:
         - CMD-SHELL
@@ -23,5 +22,7 @@ services:
       start_period: 30s
 
 volumes:
-  hcm-sql-data:
+  hr-sql-data:
+    # Existing Docker volume that contains HRStaff and HRIncrement data.
+    # Keep this name unless you intentionally migrate SQL Server data to a new volume.
     name: hcm-sql-data

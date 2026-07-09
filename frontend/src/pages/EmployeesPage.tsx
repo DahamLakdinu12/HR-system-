@@ -87,7 +87,7 @@ function parseEmployeeExport(text: string): Employee[] {
 }
 
 async function loadExportedEmployees() {
-  const response = await fetch('/data/hcm-employees.psv');
+  const response = await fetch('/data/hr-staff-employees.psv');
   if (!response.ok) throw new Error('Employee export is unavailable.');
   return parseEmployeeExport(await response.text());
 }
@@ -308,20 +308,8 @@ export function EmployeesPage() {
       .then((data) => {
         if (!ignore) setResult(data);
       })
-      .catch(async () => {
-        if (dataSource !== 'hcm') {
-          if (!ignore) setError('Unable to load employee data from the HR staff database.');
-          return;
-        }
-        try {
-          const employees = await loadExportedEmployees();
-          if (!ignore) {
-            setResult(getExportedEmployeeResult(employees, payCode, department, page, sortField, sortDirection));
-            setUsingExport(true);
-          }
-        } catch {
-          if (!ignore) setError('Unable to load employee data from HCM.');
-        }
+      .catch(() => {
+        if (!ignore) setError('Unable to load employee data from the HR staff database.');
       })
       .finally(() => {
         if (!ignore) setLoading(false);
@@ -342,20 +330,8 @@ export function EmployeesPage() {
       .then((data) => {
         if (!ignore) setDepartments(data);
       })
-      .catch(async () => {
-        if (dataSource !== 'hcm') {
-          if (!ignore) setDepartmentsError('Unable to load departments from the HR staff database.');
-          return;
-        }
-        try {
-          const employees = await loadExportedEmployees();
-          if (!ignore) {
-            setDepartments(getExportedDepartments(employees));
-            setDepartmentsUsingExport(true);
-          }
-        } catch {
-          if (!ignore) setDepartmentsError('Unable to load departments from HCM.');
-        }
+      .catch(() => {
+        if (!ignore) setDepartmentsError('Unable to load departments from the HR staff database.');
       })
       .finally(() => {
         if (!ignore) setDepartmentsLoading(false);
@@ -497,8 +473,8 @@ export function EmployeesPage() {
             {activeTab === 'employees'
               ? (department
                   ? `Employees assigned to ${department === 'Unassigned' ? 'no recorded department' : department}.`
-                  : (usingExport ? 'Showing records exported from the restored SQL Server HCM database.' : `Live employee records from the ${sourceLabel} database.`))
-              : (departmentsUsingExport ? 'Department totals from the exported HCM records.' : `Live department totals from the ${sourceLabel} database.`)}
+                  : (usingExport ? 'Showing exported HR staff records.' : `Live employee records from the ${sourceLabel} database.`))
+              : (departmentsUsingExport ? 'Department totals from exported HR staff records.' : `Live department totals from the ${sourceLabel} database.`)}
           </p>
         </div>
         <div className="employee-count">
@@ -552,9 +528,9 @@ export function EmployeesPage() {
         )}
 
         {error && <div className="employee-message employee-message--error">{error}</div>}
-        {loading && <div className="employee-message">Loading HCM employees...</div>}
+        {loading && <div className="employee-message">Loading HR staff employees...</div>}
         {usingExport && !loading && (
-          <div className="employee-message">Showing the latest exported HCM employee records. Pay code search is using restored database data.</div>
+          <div className="employee-message">Showing the latest exported HR staff employee records. Pay code search is using restored database data.</div>
         )}
 
         {!loading && !error && (
@@ -643,9 +619,9 @@ export function EmployeesPage() {
           </div>
 
           {departmentsError && <div className="employee-message employee-message--error">{departmentsError}</div>}
-          {departmentsLoading && <div className="employee-message">Loading HCM departments...</div>}
+          {departmentsLoading && <div className="employee-message">Loading HR staff departments...</div>}
           {departmentsUsingExport && !departmentsLoading && (
-            <div className="employee-message">Showing department totals from the exported HCM employee records.</div>
+            <div className="employee-message">Showing department totals from the exported HR staff employee records.</div>
           )}
 
           {!departmentsLoading && !departmentsError && (
@@ -745,25 +721,19 @@ export function EmployeesPage() {
                 <p>{previewEmployee.designation || 'Designation unavailable'}</p>
               </div>
               <div className="employee-preview-header-actions">
-                {dataSource !== 'hcm' && (
-                  <button
-                    className="employee-preview-edit-button"
-                    onClick={() => startEditing(previewEmployee)}
-                    aria-label="Edit employee details"
-                    type="button"
-                  >
-                    <Edit3 size={15} /> Edit
-                  </button>
-                )}
+                <button
+                  className="employee-preview-edit-button"
+                  onClick={() => startEditing(previewEmployee)}
+                  aria-label="Edit employee details"
+                  type="button"
+                >
+                  <Edit3 size={15} /> Edit
+                </button>
                 <button onClick={closePreview} aria-label="Close employee preview" type="button"><X size={20} /></button>
               </div>
             </header>
 
             <div className="employee-preview-content">
-              {dataSource === 'hcm' && (
-                <div className="employee-message">HCM is read-only. Switch to HR staff database to edit employee records.</div>
-              )}
-
               {editForm && (
                 <form className="employee-edit-form" onSubmit={handleSaveEmployee}>
                   <div className="employee-edit-form__header">

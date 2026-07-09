@@ -95,7 +95,5 @@ public sealed class IncrementWorkflowsController(
     private string Actor() => User.Identity?.Name ?? "system";
 
     private static EmployeeDataSource ParseDataSource(string? value) =>
-        string.Equals(value, "hcm", StringComparison.OrdinalIgnoreCase)
-            ? EmployeeDataSource.Hcm
-            : EmployeeDataSource.HrStaff;
+        EmployeeDataSource.HrStaff;
 }

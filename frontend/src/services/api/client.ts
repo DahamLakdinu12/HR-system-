@@ -1,6 +1,4 @@
 import axios from 'axios';
-import { employeeDataSourceStorageKey } from '../../constants/dataSources';
-
 const tokenKey = 'hr-increment.access-token';
 
 export const apiClient = axios.create({
@@ -12,8 +10,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const token = sessionStorage.getItem(tokenKey);
   if (token && token !== 'development-session') config.headers.Authorization = `Bearer ${token}`;
-  config.headers['X-Employee-Data-Source'] =
-    localStorage.getItem(employeeDataSourceStorageKey) === 'hcm' ? 'hcm' : 'hr-staff';
+  config.headers['X-Employee-Data-Source'] = 'hr-staff';
   return config;
 });
 

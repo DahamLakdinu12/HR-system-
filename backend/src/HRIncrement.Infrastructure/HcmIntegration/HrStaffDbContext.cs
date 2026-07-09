@@ -2,16 +2,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HRIncrement.Infrastructure.HcmIntegration;
 
-internal sealed class HcmDbContext(DbContextOptions<HcmDbContext> options) : DbContext(options)
+internal sealed class HrStaffDbContext(DbContextOptions<HrStaffDbContext> options) : DbContext(options)
 {
-    public DbSet<HcmEmployeeRow> Employees => Set<HcmEmployeeRow>();
+    public DbSet<HrStaffEmployeeRow> Employees => Set<HrStaffEmployeeRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => ConfigureEmployeeView(modelBuilder);
-
-    internal static void ConfigureEmployeeView(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<HcmEmployeeRow>(builder =>
+        modelBuilder.Entity<HrStaffEmployeeRow>(builder =>
         {
             builder.HasNoKey();
             builder.ToView("vw_HRIncrementEmployees");
@@ -27,15 +24,7 @@ internal sealed class HcmDbContext(DbContextOptions<HcmDbContext> options) : DbC
     }
 }
 
-internal sealed class HrStaffDbContext(DbContextOptions<HrStaffDbContext> options) : DbContext(options)
-{
-    public DbSet<HcmEmployeeRow> Employees => Set<HcmEmployeeRow>();
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => HcmDbContext.ConfigureEmployeeView(modelBuilder);
-}
-
-internal sealed class HcmEmployeeRow
+internal sealed class HrStaffEmployeeRow
 {
     public string EmployeeNumber { get; init; } = string.Empty;
     public string PayCode { get; init; } = string.Empty;

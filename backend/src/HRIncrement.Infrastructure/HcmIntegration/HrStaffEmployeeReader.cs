@@ -4,9 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HRIncrement.Infrastructure.HcmIntegration;
 
-internal sealed class HcmEmployeeReader(
-    HcmDbContext hcmDbContext,
-    HrStaffDbContext hrStaffDbContext) : IHcmEmployeeReader
+internal sealed class HrStaffEmployeeReader(
+    HrStaffDbContext hrStaffDbContext) : IEmployeeReader
 {
     public async Task<EmployeeSearchResultDto> SearchAsync(
         EmployeeDataSource dataSource,
@@ -22,7 +21,7 @@ internal sealed class HcmEmployeeReader(
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        var query = Rows(dataSource);
+        var query = Rows();
         if (!string.IsNullOrWhiteSpace(payCode))
         {
             var payCodeTerm = payCode.Trim();
@@ -67,7 +66,7 @@ internal sealed class HcmEmployeeReader(
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(employeeNumber);
-        return Project(Rows(dataSource).Where(x => x.EmployeeNumber == employeeNumber))
+        return Project(Rows().Where(x => x.EmployeeNumber == employeeNumber))
             .SingleOrDefaultAsync(cancellationToken);
     }
 
@@ -107,7 +106,7 @@ internal sealed class HcmEmployeeReader(
         EmployeeDataSource dataSource,
         CancellationToken cancellationToken)
     {
-        var departments = await Rows(dataSource)
+        var departments = await Rows()
             .GroupBy(x => x.Department == string.Empty ? "Unassigned" : x.Department)
             .Select(group => new DepartmentSummaryDto(group.Key, group.Count()))
             .ToListAsync(cancellationToken);
@@ -130,7 +129,7 @@ internal sealed class HcmEmployeeReader(
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        return await Project(Rows(dataSource)
+        return await Project(Rows()
             .Where(x => x.IncrementDate >= from && x.IncrementDate <= to)
             .OrderBy(x => x.IncrementDate)
             .ThenBy(x => x.EmployeeNumber)
@@ -139,12 +138,10 @@ internal sealed class HcmEmployeeReader(
             .ToListAsync(cancellationToken);
     }
 
-    private IQueryable<HcmEmployeeRow> Rows(EmployeeDataSource dataSource) =>
-        dataSource == EmployeeDataSource.Hcm
-            ? hcmDbContext.Employees.AsNoTracking()
-            : hrStaffDbContext.Employees.AsNoTracking();
+    private IQueryable<HrStaffEmployeeRow> Rows() =>
+        hrStaffDbContext.Employees.AsNoTracking();
 
-    private static IQueryable<EmployeeDto> Project(IQueryable<HcmEmployeeRow> query) => query
+    private static IQueryable<EmployeeDto> Project(IQueryable<HrStaffEmployeeRow> query) => query
         .Select(x => new EmployeeDto(
             x.EmployeeNumber,
             x.PayCode,
@@ -167,8 +164,8 @@ internal sealed class HcmEmployeeReader(
             x.SalaryScale,
             x.SalaryConversionStatus));
 
-    private static IQueryable<HcmEmployeeRow> ApplySorting(
-        IQueryable<HcmEmployeeRow> query,
+    private static IQueryable<HrStaffEmployeeRow> ApplySorting(
+        IQueryable<HrStaffEmployeeRow> query,
         string? sortBy,
         string? sortDirection)
     {

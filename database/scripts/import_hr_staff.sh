@@ -44,22 +44,22 @@ chmod 0644 "$import_file"
 chmod 0644 "$conversion_file"
 
 docker cp "$project_root/database/sql-scripts/hr-staff/001_hr_staff_database.sql" \
-  hcm-sqlserver:/tmp/001_hr_staff_database.sql
-docker cp "$import_file" hcm-sqlserver:/tmp/hr_staff_employees.tsv
-docker cp "$conversion_file" hcm-sqlserver:/tmp/hr_staff_salary_conversions.tsv
+  hr-sqlserver:/tmp/001_hr_staff_database.sql
+docker cp "$import_file" hr-sqlserver:/tmp/hr_staff_employees.tsv
+docker cp "$conversion_file" hr-sqlserver:/tmp/hr_staff_salary_conversions.tsv
 
-docker exec hcm-sqlserver /opt/mssql-tools18/bin/sqlcmd \
+docker exec hr-sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P "$sql_password" -C -d master -b \
   -i /tmp/001_hr_staff_database.sql
 
-docker exec hcm-sqlserver /opt/mssql-tools18/bin/sqlcmd \
+docker exec hr-sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P "$sql_password" -C -d HRStaff -b \
   -Q "BULK INSERT dbo.Employees FROM '/tmp/hr_staff_employees.tsv' WITH (FIELDTERMINATOR = '0x09', ROWTERMINATOR = '0x0a', KEEPNULLS, TABLOCK);"
 
-docker exec hcm-sqlserver /opt/mssql-tools18/bin/sqlcmd \
+docker exec hr-sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P "$sql_password" -C -d HRStaff \
   -Q "BULK INSERT dbo.SalaryConversionPoints FROM '/tmp/hr_staff_salary_conversions.tsv' WITH (FIELDTERMINATOR = '0x09', ROWTERMINATOR = '0x0a', KEEPNULLS, TABLOCK);"
 
-docker exec hcm-sqlserver /opt/mssql-tools18/bin/sqlcmd \
+docker exec hr-sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P "$sql_password" -C -d HRStaff \
   -Q "SELECT (SELECT COUNT(*) FROM dbo.Employees) AS ImportedEmployees, (SELECT COUNT(*) FROM dbo.SalaryConversionPoints) AS ImportedSalaryPoints;"

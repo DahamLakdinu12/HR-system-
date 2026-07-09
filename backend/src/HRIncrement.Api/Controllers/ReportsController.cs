@@ -71,7 +71,5 @@ public sealed class ReportsController(IReportsService reportsService) : Controll
     }
 
     private static EmployeeDataSource ParseDataSource(string? value) =>
-        string.Equals(value, "hcm", StringComparison.OrdinalIgnoreCase)
-            ? EmployeeDataSource.Hcm
-            : EmployeeDataSource.HrStaff;
+        EmployeeDataSource.HrStaff;
 }

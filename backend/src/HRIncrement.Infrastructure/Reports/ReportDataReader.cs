@@ -8,7 +8,7 @@ namespace HRIncrement.Infrastructure.Reports;
 
 internal sealed class ReportDataReader(
     ApplicationDbContext applicationDbContext,
-    IHcmEmployeeReader employeeReader)
+    IEmployeeReader employeeReader)
 {
     public async Task<IReadOnlyList<IncrementRegisterRowDto>> GetIncrementRowsAsync(
         EmployeeDataSource dataSource,
@@ -17,7 +17,7 @@ internal sealed class ReportDataReader(
         CancellationToken cancellationToken)
     {
         var (from, to) = MonthRange(year, month);
-        var sourceName = dataSource == EmployeeDataSource.Hcm ? "hcm" : "hr-staff";
+        var sourceName = "hr-staff";
         var blockedKeys = await applicationDbContext.EmployeeIncrements
             .AsNoTracking()
             .Where(x =>
@@ -78,7 +78,7 @@ internal sealed class ReportDataReader(
         CancellationToken cancellationToken)
     {
         var (fromUtc, toUtc) = DecisionRangeUtc(year, month);
-        var sourceName = dataSource == EmployeeDataSource.Hcm ? "hcm" : "hr-staff";
+        var sourceName = "hr-staff";
 
         var rows = await (
             from decision in applicationDbContext.WorkflowDecisions.AsNoTracking()

@@ -100,7 +100,7 @@ function parseEmployeeExport(text: string): Employee[] {
 }
 
 async function loadExportedEmployees() {
-  const response = await fetch('/data/hcm-employees.psv');
+  const response = await fetch('/data/hr-staff-employees.psv');
   if (!response.ok) throw new Error('Employee export is unavailable.');
   return parseEmployeeExport(await response.text());
 }
@@ -169,22 +169,7 @@ export function DashboardPage() {
 
     searchEmployees({ page: 1, pageSize: 1 })
       .then((data) => setTotalEmployees(data.totalCount))
-      .catch(async () => {
-        if (dataSource !== 'hcm') {
-          setTotalEmployees(null);
-          return;
-        }
-        try {
-          const employees = await loadExportedEmployees();
-          setTotalEmployees(employees.length);
-          setDueThisMonth(getEmployeesDueBetween(employees, today, monthEnd));
-          setUpcomingIncrements(getEmployeesDueBetween(employees, today, next14Days).slice(0, 4));
-          setUpcomingTabRows(getEmployeesDueBetween(employees, today, next60Days).slice(0, 12));
-          setUsingExport(true);
-        } catch {
-          setTotalEmployees(null);
-        }
-      });
+      .catch(() => setTotalEmployees(null));
 
     getAllDueIncrements({
       from: toDateInput(today),
@@ -352,7 +337,7 @@ export function DashboardPage() {
           <div className="panel__header">
             <div>
               <h2>Upcoming increment</h2>
-              <p>{usingExport ? 'Showing upcoming increment dates from the exported HCM records.' : `Employees scheduled from ${sourceLabel} in the next 60 days.`}</p>
+              <p>{usingExport ? 'Showing upcoming increment dates from the exported HR staff records.' : `Employees scheduled from ${sourceLabel} in the next 60 days.`}</p>
             </div>
             <button className="text-button" onClick={() => navigate('/employees')}>Open employees <ArrowRight size={16} /></button>
           </div>

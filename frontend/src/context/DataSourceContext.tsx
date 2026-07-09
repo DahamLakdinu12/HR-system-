@@ -12,8 +12,8 @@ type DataSourceContextValue = {
 const DataSourceContext = createContext<DataSourceContextValue | null>(null);
 
 function getInitialDataSource(): EmployeeDataSource {
-  const stored = localStorage.getItem(employeeDataSourceStorageKey);
-  return stored === 'hcm' ? 'hcm' : 'hr-staff';
+  localStorage.setItem(employeeDataSourceStorageKey, 'hr-staff');
+  return 'hr-staff';
 }
 
 export function DataSourceProvider({ children }: { children: ReactNode }) {

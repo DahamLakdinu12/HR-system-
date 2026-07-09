@@ -22,7 +22,6 @@ public sealed class AssessmentPdfGeneratorTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:ApplicationDatabase"] = "Server=localhost,1433;Database=HRIncrement;User Id=sa;Password=YourStrong@Pass123;Encrypt=True;TrustServerCertificate=True",
-                ["ConnectionStrings:HcmDatabase"] = "Server=localhost,1433;Database=HCM8;User Id=sa;Password=YourStrong@Pass123;Encrypt=True;TrustServerCertificate=True;ApplicationIntent=ReadOnly",
                 ["ConnectionStrings:HrStaffDatabase"] = "Server=localhost,1433;Database=HRStaff;User Id=sa;Password=YourStrong@Pass123;Encrypt=True;TrustServerCertificate=True;ApplicationIntent=ReadOnly",
             })
             .Build();

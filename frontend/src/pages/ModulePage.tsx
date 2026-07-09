@@ -23,7 +23,7 @@ export function ModulePage({ title, description }: ModulePageProps) {
       <section className="panel empty-state">
         <span className="empty-state__icon">{searchTerm ? <Search size={26} /> : <Construction size={26} />}</span>
         <h2>{searchTerm ? `Search results for “${searchTerm}”` : `${title} module`}</h2>
-        <p>{searchTerm ? 'Connect the HCM database to return live employee results.' : 'The navigation is working. This business module is ready for its forms, tables and API integration.'}</p>
+        <p>{searchTerm ? 'Connect the HR staff database to return live employee results.' : 'The navigation is working. This business module is ready for its forms, tables and API integration.'}</p>
         <button className="primary-button" onClick={() => navigate('/dashboard')}>Return to overview</button>
       </section>
     </main>

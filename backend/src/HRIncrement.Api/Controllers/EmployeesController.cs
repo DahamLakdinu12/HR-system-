@@ -8,7 +8,7 @@ namespace HRIncrement.Api.Controllers;
 [ApiController]
 [Route("api/v1/employees")]
 [Authorize(Policy = "CanReadEmployees")]
-public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : ControllerBase
+public sealed class EmployeesController(IEmployeeReader employeeReader) : ControllerBase
 {
     private const string DataSourceHeader = "X-Employee-Data-Source";
 
@@ -59,9 +59,6 @@ public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : Con
         [FromHeader(Name = DataSourceHeader)] string? dataSource,
         CancellationToken cancellationToken)
     {
-        if (ParseDataSource(dataSource) != EmployeeDataSource.HrStaff)
-            return Conflict(new ProblemDetails { Title = "HCM is read-only. Select the HR staff database before editing employees." });
-
         try
         {
             return Ok(await employeeReader.UpdateHrStaffEmployeeAsync(
@@ -90,7 +87,5 @@ public sealed class EmployeesController(IHcmEmployeeReader employeeReader) : Con
         Ok(await employeeReader.GetDueIncrementsAsync(ParseDataSource(dataSource), from, to, page, pageSize, cancellationToken));
 
     private static EmployeeDataSource ParseDataSource(string? value) =>
-        string.Equals(value, "hcm", StringComparison.OrdinalIgnoreCase)
-            ? EmployeeDataSource.Hcm
-            : EmployeeDataSource.HrStaff;
+        EmployeeDataSource.HrStaff;
 }

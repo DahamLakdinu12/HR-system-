@@ -74,5 +74,5 @@ internal sealed class ReportsService(ReportDataReader dataReader) : IReportsServ
     }
 
     private static string SourceLabel(EmployeeDataSource dataSource) =>
-        dataSource == EmployeeDataSource.Hcm ? "HCM database" : "HR staff database";
+        "HR staff database";
 }

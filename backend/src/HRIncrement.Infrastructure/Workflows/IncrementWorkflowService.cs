@@ -9,7 +9,7 @@ namespace HRIncrement.Infrastructure.Workflows;
 
 internal sealed class IncrementWorkflowService(
     ApplicationDbContext applicationDbContext,
-    IHcmEmployeeReader employeeReader,
+    IEmployeeReader employeeReader,
     TimeProvider timeProvider) : IIncrementWorkflowService
 {
     public async Task<IncrementWorkflowDto> MoveToAssessmentAsync(
@@ -18,8 +18,6 @@ internal sealed class IncrementWorkflowService(
         string actor,
         CancellationToken cancellationToken)
     {
-        if (dataSource != EmployeeDataSource.HrStaff)
-            throw new InvalidOperationException("Only the approved HR staff database can be updated.");
         if (request.SalaryPoint < 1)
             throw new InvalidOperationException("A matched salary point is required.");
 
@@ -153,9 +151,6 @@ internal sealed class IncrementWorkflowService(
         string actor,
         CancellationToken cancellationToken)
     {
-        if (dataSource != EmployeeDataSource.HrStaff)
-            throw new InvalidOperationException("HCM is read-only and cannot be updated.");
-
         var strategy = applicationDbContext.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
@@ -258,7 +253,7 @@ internal sealed class IncrementWorkflowService(
             cancellationToken) ?? throw new KeyNotFoundException("Workflow record not found.");
 
     private static string DataSourceName(EmployeeDataSource dataSource) =>
-        dataSource == EmployeeDataSource.Hcm ? "hcm" : "hr-staff";
+        "hr-staff";
 
     private static IncrementWorkflowDto ToDto(EmployeeIncrement workflow) => new(
         workflow.Id,

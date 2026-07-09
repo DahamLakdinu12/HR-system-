@@ -16,19 +16,15 @@ public static class DependencyInjection
     {
         var applicationConnection = configuration.GetConnectionString("ApplicationDatabase")
             ?? throw new InvalidOperationException("ConnectionStrings:ApplicationDatabase is required.");
-        var hcmConnection = configuration.GetConnectionString("HcmDatabase")
-            ?? throw new InvalidOperationException("ConnectionStrings:HcmDatabase is required.");
         var hrStaffConnection = configuration.GetConnectionString("HrStaffDatabase")
             ?? throw new InvalidOperationException("ConnectionStrings:HrStaffDatabase is required.");
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(applicationConnection, sql => sql.EnableRetryOnFailure()));
-        services.AddDbContext<HcmDbContext>(options =>
-            options.UseSqlServer(hcmConnection, sql => sql.EnableRetryOnFailure()));
         services.AddDbContext<HrStaffDbContext>(options =>
             options.UseSqlServer(hrStaffConnection, sql => sql.EnableRetryOnFailure()));
         services.AddSingleton<HttpClient>();
-        services.AddScoped<IHcmEmployeeReader, HcmEmployeeReader>();
+        services.AddScoped<IEmployeeReader, HrStaffEmployeeReader>();
         services.AddScoped<IAssessmentLeaveParticularsProvider, HcmLeaveParticularsProvider>();
         services.AddScoped<IIncrementWorkflowService, IncrementWorkflowService>();
         services.AddScoped<ReportDataReader>();

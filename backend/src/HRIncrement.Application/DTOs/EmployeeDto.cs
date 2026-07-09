@@ -43,6 +43,5 @@ public sealed record UpdateHrStaffEmployeeRequest(
 
 public enum EmployeeDataSource
 {
-    Hcm,
     HrStaff
 }

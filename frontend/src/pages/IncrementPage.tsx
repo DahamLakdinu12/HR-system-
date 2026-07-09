@@ -107,7 +107,7 @@ function parseEmployeeExport(text: string): Employee[] {
 }
 
 async function loadExportedEmployees() {
-  const response = await fetch('/data/hcm-employees.psv');
+  const response = await fetch('/data/hr-staff-employees.psv');
   if (!response.ok) throw new Error('Employee export is unavailable.');
   return parseEmployeeExport(await response.text());
 }
@@ -490,28 +490,8 @@ export function IncrementPage() {
         setSelectedEmployeeNumbers(new Set());
         setSelectedEmployeeNumber(sortedRows[0]?.employeeNumber ?? null);
       })
-      .catch(async () => {
-        if (dataSource !== 'hcm') {
-          if (!ignore) setError('Unable to load increment records from the HR staff database.');
-          return;
-        }
-        try {
-          const employees = await loadExportedEmployees();
-          if (ignore) return;
-
-          const exportedRows = sortRows(
-            employees.filter((employee) =>
-              employee.incrementDate &&
-              employee.incrementDate >= toDateInput(range.from) &&
-              employee.incrementDate <= toDateInput(range.to)),
-          );
-          setRows(exportedRows);
-          setSelectedEmployeeNumbers(new Set());
-          setSelectedEmployeeNumber(exportedRows[0]?.employeeNumber ?? null);
-          setUsingExport(true);
-        } catch {
-          if (!ignore) setError('Unable to load increment records from HCM.');
-        }
+      .catch(() => {
+        if (!ignore) setError('Unable to load increment records from the HR staff database.');
       })
       .finally(() => {
         if (!ignore) setLoading(false);
@@ -747,7 +727,7 @@ export function IncrementPage() {
         <div>
           <span className="eyebrow">Increment processing</span>
           <h1>Increment page</h1>
-          <p>{usingExport ? 'Processing queue loaded from the exported HCM employee records.' : `Review upcoming increment records from the ${sourceLabel} database.`}</p>
+          <p>{usingExport ? 'Processing queue loaded from the exported HR staff employee records.' : `Review upcoming increment records from the ${sourceLabel} database.`}</p>
         </div>
       </section>
 
@@ -818,7 +798,7 @@ export function IncrementPage() {
           {loading && <div className="employee-message">Loading increment records...</div>}
           {error && <div className="employee-message employee-message--error">{error}</div>}
           {assessmentError && <div className="employee-message employee-message--error">{assessmentError}</div>}
-          {usingExport && !loading && <div className="employee-message">Showing exported HCM records because the backend API is not available.</div>}
+          {usingExport && !loading && <div className="employee-message">Showing exported HR staff records because the backend API is not available.</div>}
 
           {!loading && !error && (
             <div className="table-wrap">
