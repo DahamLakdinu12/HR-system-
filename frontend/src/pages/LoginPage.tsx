@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import loginBackground from '../assets/images/loging-background.jpg';
 import loginLogo from '../assets/images/boi-logo.png';
 import { Logo } from '../components/common/Logo';
+import { localLoginAccount } from '../constants/auth';
 
 type LoginPageProps = { onLogin: () => void };
 
@@ -11,9 +12,22 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [recoverySent, setRecoverySent] = useState(false);
+  const [email, setEmail] = useState(localLoginAccount.email);
+  const [password, setPassword] = useState(localLoginAccount.password);
+  const [loginError, setLoginError] = useState('');
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    setLoginError('');
+
+    if (
+      email.trim().toLowerCase() !== localLoginAccount.email.toLowerCase() ||
+      password !== localLoginAccount.password
+    ) {
+      setLoginError('Invalid email or password.');
+      return;
+    }
+
     setLoading(true);
     window.setTimeout(onLogin, 450);
   };
@@ -45,7 +59,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <label htmlFor="email">Work email</label>
             <div className="input-wrap">
               <Mail size={19} />
-              <input id="email" type="email" defaultValue="admin@elevatehr.lk" placeholder="name@organisation.lk" required />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="name@organisation.lk"
+                required
+              />
             </div>
             <div className="password-label">
               <label htmlFor="password">Password</label>
@@ -53,12 +74,21 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             </div>
             <div className="input-wrap">
               <LockKeyhole size={19} />
-              <input id="password" type={showPassword ? 'text' : 'password'} defaultValue="password" placeholder="Enter your password" minLength={6} required />
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Enter your password"
+                minLength={6}
+                required
+              />
               <button className="password-toggle" type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword(!showPassword)}>
                 {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </div>
             {recoverySent && <p className="recovery-message" role="status">Please contact HR support to reset your account password.</p>}
+            {loginError && <p className="login-error" role="alert">{loginError}</p>}
             <label className="remember"><input type="checkbox" defaultChecked /> <span>Keep me signed in</span></label>
             <button className="login-button" type="submit" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign in'} {!loading && <ArrowRight size={19} />}
