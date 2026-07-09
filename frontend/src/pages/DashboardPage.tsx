@@ -10,6 +10,7 @@ import { Employee } from '../types/employee';
 import { IncrementWorkflow } from '../types/incrementWorkflow';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
+import { localUserProfile } from '../constants/auth';
 
 type OverviewTab = 'summary' | 'upcoming';
 
@@ -321,7 +322,7 @@ export function DashboardPage() {
   return (
     <main className="dashboard">
       <section className="welcome-row">
-        <div><span className="eyebrow">{new Intl.DateTimeFormat('en-LK', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}</span><h1>Good morning, Admin.</h1><p>Here’s what’s happening across your HR workspace today.</p></div>
+        <div><span className="eyebrow">{new Intl.DateTimeFormat('en-LK', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}</span><h1>Good morning, {localUserProfile.displayName}.</h1><p>Here’s what’s happening across your HR workspace today.</p></div>
         <button className="primary-button" onClick={() => navigate('/increments')}><TrendingUp size={18} /> Process increments</button>
       </section>
 

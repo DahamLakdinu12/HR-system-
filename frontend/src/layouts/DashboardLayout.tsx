@@ -6,6 +6,7 @@ import {
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/common/Logo';
+import { localUserProfile } from '../constants/auth';
 import { useAuth } from '../context/AuthContext';
 import { useDataSource } from '../context/DataSourceContext';
 import { getWorkflowCounts } from '../services/api/incrementWorkflows';
@@ -119,8 +120,8 @@ export function DashboardLayout() {
           <ArrowRight size={16} />
         </button>
         <button className="user-card" onClick={signOut} aria-label="Sign out">
-          <span className="avatar">AD</span>
-          <span><strong>admin</strong><small>System Administrator</small></span>
+          <span className="avatar">{localUserProfile.initials}</span>
+          <span><strong>{localUserProfile.displayName}</strong><small>{localUserProfile.role}</small></span>
           <LogOut size={17} />
         </button>
       </aside>
@@ -139,7 +140,7 @@ export function DashboardLayout() {
             </div>
             <span className="topbar__divider" />
             <div className="action-menu">
-              <button className="profile-button" onClick={() => { setProfileOpen(!profileOpen); setNotificationsOpen(false); }}><span className="avatar">AD</span><span>admin</span><ChevronDown size={15} /></button>
+              <button className="profile-button" onClick={() => { setProfileOpen(!profileOpen); setNotificationsOpen(false); }}><span className="avatar">{localUserProfile.initials}</span><span>{localUserProfile.displayName}</span><ChevronDown size={15} /></button>
               {profileOpen && <div className="popover profile-popover"><button onClick={() => navigate('/settings')}><Settings size={15} /> Settings</button><button onClick={signOut}><LogOut size={15} /> Sign out</button></div>}
             </div>
           </div>
