@@ -42,7 +42,7 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
             {
                 column.Item().Text("Part I ( To be filled by the HR Department)").FontSize(12);
                 column.Item().AlignCenter().Text("Board of Investment of Sri Lanka").Bold().FontSize(16);
-                column.Item().AlignCenter().Text("Performance Assessment (Junior Management)").FontSize(14);
+                column.Item().AlignCenter().Text($"Performance Assessment ({AssessmentCategory(assessment.Grade)})").FontSize(14);
                 column.Item().PaddingTop(10).AlignCenter().Text(text =>
                 {
                     text.Span("Period : From  ");
@@ -289,6 +289,36 @@ internal sealed class AssessmentPdfGenerator : IAssessmentPdfGenerator
             return assessment.Location;
 
         return $"{assessment.Department} - {assessment.Location}";
+    }
+
+    private static string AssessmentCategory(string grade)
+    {
+        var normalizedGrade = new string(
+            grade
+                .ToUpperInvariant()
+                .Where(char.IsLetterOrDigit)
+                .ToArray());
+
+        if (normalizedGrade.StartsWith("HM", StringComparison.Ordinal))
+            return "Senior Management";
+        if (normalizedGrade.StartsWith("MM", StringComparison.Ordinal))
+            return "Middle Management";
+        if (normalizedGrade.StartsWith("JM", StringComparison.Ordinal))
+            return "Junior Management";
+        if (normalizedGrade.StartsWith("MA22", StringComparison.Ordinal))
+            return "Management Assistant - Technology";
+        if (normalizedGrade.StartsWith("MA12", StringComparison.Ordinal))
+            return "Management Assistant - Non Technology";
+        if (normalizedGrade.StartsWith("MA11", StringComparison.Ordinal))
+            return "Primary Level - Special Grade";
+        if (normalizedGrade.StartsWith("PL3", StringComparison.Ordinal))
+            return "Primary Level - Skilled";
+        if (normalizedGrade.StartsWith("PL2", StringComparison.Ordinal))
+            return "Primary Level - Semiskilled";
+        if (normalizedGrade.StartsWith("PL1", StringComparison.Ordinal))
+            return "Primary Level - Unskilled";
+
+        return "Junior Management";
     }
 
     private static void FinanceSlipRow(

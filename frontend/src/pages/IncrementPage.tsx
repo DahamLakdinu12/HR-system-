@@ -252,6 +252,22 @@ function formatLeaveValue(value: string | number | null | undefined) {
   return text || '........';
 }
 
+function getAssessmentCategory(grade: string) {
+  const normalizedGrade = grade.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  if (normalizedGrade.startsWith('HM')) return 'Senior Management';
+  if (normalizedGrade.startsWith('MM')) return 'Middle Management';
+  if (normalizedGrade.startsWith('JM')) return 'Junior Management';
+  if (normalizedGrade.startsWith('MA22')) return 'Management Assistant - Technology';
+  if (normalizedGrade.startsWith('MA12')) return 'Management Assistant - Non Technology';
+  if (normalizedGrade.startsWith('MA11')) return 'Primary Level - Special Grade';
+  if (normalizedGrade.startsWith('PL3')) return 'Primary Level - Skilled';
+  if (normalizedGrade.startsWith('PL2')) return 'Primary Level - Semiskilled';
+  if (normalizedGrade.startsWith('PL1')) return 'Primary Level - Unskilled';
+
+  return 'Junior Management';
+}
+
 function buildAssessmentPayload(
   employee: Employee,
   allowStagnation = false,
@@ -321,6 +337,7 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
   const nextBasicSalary = formatAssessmentMoney(payload.convertedSalary);
   const nextPayableSalary = formatAssessmentMoney(payload.payableSalary);
   const hasSeparatePayableSalary = usesSeparatePayableSalary(payload.incrementDate);
+  const assessmentCategory = getAssessmentCategory(payload.grade);
   const previousLeave = payload.leaveParticulars?.previousYear;
   const currentLeave = payload.leaveParticulars?.currentYear;
 
@@ -360,7 +377,7 @@ function openPrintableAssessmentForm(payload: AssessmentFormPayload) {
         <button onclick="window.print()">Print / Save PDF</button>
         <div class="top-note">Part I ( To be filled by the HR Department)</div>
         <h1>Board of Investment of Sri Lanka</h1>
-        <h2>Performance Assessment (Junior Management)</h2>
+        <h2>Performance Assessment (${escapeHtml(assessmentCategory)})</h2>
         <div class="period">Period : From&nbsp; <strong>${escapeHtml(formatAssessmentDate(assessmentPeriodStart))}</strong> to <strong>${escapeHtml(formatAssessmentDate(payload.incrementDate))}</strong></div>
         <div class="rule"></div>
 
