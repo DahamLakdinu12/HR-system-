@@ -32,3 +32,11 @@ export type DepartmentSummary = {
   name: string;
   employeeCount: number;
 };
+
+export type EmployeeLookupOptions = {
+  departments: string[];
+  locations: string[];
+  salaryScales: string[];
+  grades: string[];
+  designations: string[];
+};

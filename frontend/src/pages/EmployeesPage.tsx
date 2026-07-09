@@ -1,8 +1,8 @@
 import { ArrowLeft, ArrowRight, Building2, CalendarDays, Edit3, MapPin, RefreshCw, Save, Search, UserRound, Users, WalletCards, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getDepartments, searchEmployees, updateEmployee } from '../services/api/employees';
-import { DepartmentSummary, Employee, EmployeeSearchResult } from '../types/employee';
+import { getDepartments, getEmployeeLookupOptions, searchEmployees, updateEmployee } from '../services/api/employees';
+import { DepartmentSummary, Employee, EmployeeLookupOptions, EmployeeSearchResult } from '../types/employee';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
@@ -10,13 +10,28 @@ const pageSize = 25;
 type SortField = 'employee' | 'payCode' | 'designation' | 'grade' | 'department' | 'location' | 'incrementDate' | 'currentSalary';
 type SortDirection = 'asc' | 'desc';
 type EmployeeEditForm = {
+  fullName: string;
   designation: string;
   grade: string;
   department: string;
   location: string;
+  salaryScale: string;
   appointmentDate: string;
   promotionDate: string;
   nextIncrementDate: string;
+  currentSalary: string;
+  basicSalary2027: string;
+  incrementAmount: string;
+  stagnationAllowance: string;
+  salaryPoint: string;
+};
+
+const emptyLookupOptions: EmployeeLookupOptions = {
+  departments: [],
+  locations: [],
+  salaryScales: [],
+  grades: [],
+  designations: [],
 };
 
 const sortFields: SortField[] = ['employee', 'payCode', 'designation', 'grade', 'department', 'location', 'incrementDate', 'currentSalary'];
@@ -199,6 +214,10 @@ function toDateField(value: string | null) {
   return value ? value.slice(0, 10) : '';
 }
 
+function toNumberField(value: number | null | undefined) {
+  return value && Number.isFinite(value) ? String(Math.round(value)) : '';
+}
+
 function deriveIncrementDate(baseDate: string) {
   if (!baseDate) return '';
   const [, month, day] = baseDate.split('-');
@@ -208,14 +227,28 @@ function deriveIncrementDate(baseDate: string) {
 
 function getEditForm(employee: Employee): EmployeeEditForm {
   return {
+    fullName: getEmployeeName(employee),
     designation: employee.designation,
     grade: employee.grade,
     department: employee.department,
     location: employee.location,
+    salaryScale: employee.salaryScale,
     appointmentDate: toDateField(employee.appointmentDate),
     promotionDate: toDateField(employee.promotionDate),
     nextIncrementDate: toDateField(employee.incrementDate),
+    currentSalary: toNumberField(employee.currentSalary),
+    basicSalary2027: toNumberField(employee.presentBasicSalary || employee.convertedSalary),
+    incrementAmount: toNumberField(employee.incrementAmount),
+    stagnationAllowance: toNumberField(employee.stagnationAllowance),
+    salaryPoint: employee.salaryPoint === null ? '' : String(employee.salaryPoint),
   };
+}
+
+function selectOptions(options: string[], currentValue: string) {
+  const normalized = currentValue.trim();
+  const hasCurrent = !normalized || options.some((option) =>
+    option.localeCompare(normalized, undefined, { sensitivity: 'accent' }) === 0);
+  return hasCurrent ? options : [normalized, ...options];
 }
 
 function formatMoney(value: number) {
@@ -260,6 +293,7 @@ export function EmployeesPage() {
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
   const [departmentsError, setDepartmentsError] = useState<string | null>(null);
   const [departmentsUsingExport, setDepartmentsUsingExport] = useState(false);
+  const [lookupOptions, setLookupOptions] = useState<EmployeeLookupOptions>(emptyLookupOptions);
   const [refreshKey, setRefreshKey] = useState(0);
   const [previewEmployee, setPreviewEmployee] = useState<Employee | null>(null);
   const [editForm, setEditForm] = useState<EmployeeEditForm | null>(null);
@@ -335,6 +369,22 @@ export function EmployeesPage() {
       })
       .finally(() => {
         if (!ignore) setDepartmentsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [dataSource, refreshKey]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    getEmployeeLookupOptions()
+      .then((data) => {
+        if (!ignore) setLookupOptions(data);
+      })
+      .catch(() => {
+        if (!ignore) setLookupOptions(emptyLookupOptions);
       });
 
     return () => {
@@ -426,13 +476,20 @@ export function EmployeesPage() {
     setEditError(null);
     try {
       const updated = await updateEmployee(previewEmployee.employeeNumber, {
+        fullName: editForm.fullName,
         designation: editForm.designation,
         grade: editForm.grade,
         department: editForm.department,
         location: editForm.location,
+        salaryScale: editForm.salaryScale,
         appointmentDate: editForm.appointmentDate,
         promotionDate: editForm.promotionDate || null,
         nextIncrementDate: editForm.nextIncrementDate || null,
+        currentSalary: Number(editForm.currentSalary || 0),
+        basicSalary2027: Number(editForm.basicSalary2027 || 0),
+        incrementAmount: Number(editForm.incrementAmount || 0),
+        stagnationAllowance: Number(editForm.stagnationAllowance || 0),
+        salaryPoint: editForm.salaryPoint ? Number(editForm.salaryPoint) : null,
       });
 
       setPreviewEmployee(updated);
@@ -749,20 +806,48 @@ export function EmployeesPage() {
                   {editError && <div className="employee-message employee-message--error">{editError}</div>}
 
                   <label>
+                    Pay code
+                    <input value={previewEmployee.payCode || previewEmployee.employeeNumber} disabled readOnly />
+                    <small>Paycode is locked because it is the database key.</small>
+                  </label>
+                  <label>
+                    Employee name
+                    <input value={editForm.fullName} onChange={(event) => updateEditField('fullName', event.target.value)} required />
+                  </label>
+                  <label>
                     Designation
-                    <input value={editForm.designation} onChange={(event) => updateEditField('designation', event.target.value)} required />
+                    <select value={editForm.designation} onChange={(event) => updateEditField('designation', event.target.value)} required>
+                      <option value="">Select designation</option>
+                      {selectOptions(lookupOptions.designations, editForm.designation).map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
                   </label>
                   <label>
                     Grade
-                    <input value={editForm.grade} onChange={(event) => updateEditField('grade', event.target.value)} required />
+                    <select value={editForm.grade} onChange={(event) => updateEditField('grade', event.target.value)} required>
+                      <option value="">Select grade</option>
+                      {selectOptions(lookupOptions.grades, editForm.grade).map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
                   </label>
                   <label>
                     Department
-                    <input value={editForm.department} onChange={(event) => updateEditField('department', event.target.value)} />
+                    <select value={editForm.department} onChange={(event) => updateEditField('department', event.target.value)}>
+                      <option value="">Unassigned</option>
+                      {selectOptions(lookupOptions.departments, editForm.department).map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
                   </label>
                   <label>
                     Location
-                    <input value={editForm.location} onChange={(event) => updateEditField('location', event.target.value)} />
+                    <select value={editForm.location} onChange={(event) => updateEditField('location', event.target.value)}>
+                      <option value="">Select location</option>
+                      {selectOptions(lookupOptions.locations, editForm.location).map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Salary scale
+                    <select value={editForm.salaryScale} onChange={(event) => updateEditField('salaryScale', event.target.value)}>
+                      <option value="">Select salary scale</option>
+                      {selectOptions(lookupOptions.salaryScales, editForm.salaryScale).map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
                   </label>
                   <label>
                     Appointment date
@@ -776,6 +861,26 @@ export function EmployeesPage() {
                     Next increment date
                     <input type="date" value={editForm.nextIncrementDate} onChange={(event) => updateEditField('nextIncrementDate', event.target.value)} />
                     <small>Changing promotion date auto-updates this date to the same day/month in the current year.</small>
+                  </label>
+                  <label>
+                    Current salary
+                    <input type="number" min="0" step="1" value={editForm.currentSalary} onChange={(event) => updateEditField('currentSalary', event.target.value)} required />
+                  </label>
+                  <label>
+                    Basic salary 2027
+                    <input type="number" min="0" step="1" value={editForm.basicSalary2027} onChange={(event) => updateEditField('basicSalary2027', event.target.value)} />
+                  </label>
+                  <label>
+                    Increment amount
+                    <input type="number" min="0" step="1" value={editForm.incrementAmount} onChange={(event) => updateEditField('incrementAmount', event.target.value)} />
+                  </label>
+                  <label>
+                    Stagnation allowance
+                    <input type="number" min="0" step="1" value={editForm.stagnationAllowance} onChange={(event) => updateEditField('stagnationAllowance', event.target.value)} />
+                  </label>
+                  <label>
+                    Salary point
+                    <input type="number" min="0" step="1" value={editForm.salaryPoint} onChange={(event) => updateEditField('salaryPoint', event.target.value)} />
                   </label>
                   <div className="employee-edit-form__actions">
                     <button className="secondary-button" onClick={() => setEditForm(null)} disabled={savingEmployee} type="button">Cancel</button>

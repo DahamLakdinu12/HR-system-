@@ -29,6 +29,10 @@ public interface IEmployeeReader
         EmployeeDataSource dataSource,
         CancellationToken cancellationToken);
 
+    Task<EmployeeLookupOptionsDto> GetLookupOptionsAsync(
+        EmployeeDataSource dataSource,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<EmployeeDto>> GetDueIncrementsAsync(
         EmployeeDataSource dataSource,
         DateOnly from,

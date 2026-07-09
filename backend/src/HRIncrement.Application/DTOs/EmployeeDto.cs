@@ -32,14 +32,28 @@ public sealed record DepartmentSummaryDto(
     string Name,
     int EmployeeCount);
 
+public sealed record EmployeeLookupOptionsDto(
+    IReadOnlyList<string> Departments,
+    IReadOnlyList<string> Locations,
+    IReadOnlyList<string> SalaryScales,
+    IReadOnlyList<string> Grades,
+    IReadOnlyList<string> Designations);
+
 public sealed record UpdateHrStaffEmployeeRequest(
+    string FullName,
     string Designation,
     string Grade,
     string Department,
     string Location,
+    string SalaryScale,
     DateOnly AppointmentDate,
     DateOnly? PromotionDate,
-    DateOnly? NextIncrementDate);
+    DateOnly? NextIncrementDate,
+    decimal CurrentSalary,
+    decimal BasicSalary2027,
+    decimal IncrementAmount,
+    decimal StagnationAllowance,
+    int? SalaryPoint);
 
 public enum EmployeeDataSource
 {

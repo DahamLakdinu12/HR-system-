@@ -78,20 +78,38 @@ internal sealed class HrStaffEmployeeReader(
         ArgumentException.ThrowIfNullOrWhiteSpace(employeeNumber);
         if (request.AppointmentDate == default)
             throw new InvalidOperationException("Appointment date is required.");
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            throw new InvalidOperationException("Employee name is required.");
         if (string.IsNullOrWhiteSpace(request.Designation))
             throw new InvalidOperationException("Designation is required.");
         if (string.IsNullOrWhiteSpace(request.Grade))
             throw new InvalidOperationException("Grade is required.");
+        if (request.CurrentSalary <= 0)
+            throw new InvalidOperationException("Current salary must be greater than zero.");
+
+        var (firstName, lastName) = SplitFullName(request.FullName);
+        decimal? basicSalary2027 = request.BasicSalary2027 > 0 ? request.BasicSalary2027 : null;
+        decimal? stagnationAllowance = request.StagnationAllowance > 0 ? request.StagnationAllowance : null;
+        var salaryPoint = request.SalaryPoint ?? 0;
 
         var affected = await hrStaffDbContext.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE dbo.Employees
-            SET PostDescription = {request.Designation.Trim()},
+            SET FirstName = {firstName},
+                LastName = {lastName},
+                PostDescription = {request.Designation.Trim()},
                 NewGrade = {request.Grade.Trim()},
-                Department = {request.Department.Trim()},
-                WorkLocation = {request.Location.Trim()},
+                Department = {(request.Department ?? string.Empty).Trim()},
+                WorkLocation = {(request.Location ?? string.Empty).Trim()},
+                SalaryScale = {NullIfWhiteSpace(request.SalaryScale)},
                 DateJoined = {request.AppointmentDate},
                 DateOfPromotion = {request.PromotionDate},
-                NextIncrementDate = {request.NextIncrementDate}
+                NextIncrementDate = {request.NextIncrementDate},
+                PayableSalary2026 = {request.CurrentSalary},
+                BasicSalary2027 = {basicSalary2027},
+                IncrementAmount = {request.IncrementAmount},
+                StagnationAllowance = {stagnationAllowance},
+                IncrementLevel = {salaryPoint},
+                SalaryPoint = {salaryPoint}
             WHERE PayCode = {employeeNumber.Trim()}
             """, cancellationToken);
 
@@ -100,6 +118,38 @@ internal sealed class HrStaffEmployeeReader(
 
         return await GetByEmployeeNumberAsync(EmployeeDataSource.HrStaff, employeeNumber, cancellationToken)
             ?? throw new KeyNotFoundException("Employee record could not be reloaded after update.");
+    }
+
+    public async Task<EmployeeLookupOptionsDto> GetLookupOptionsAsync(
+        EmployeeDataSource dataSource,
+        CancellationToken cancellationToken)
+    {
+        var departments = await DistinctValuesAsync(Rows().Select(x => x.Department), cancellationToken);
+        var locations = await DistinctValuesAsync(Rows().Select(x => x.Location), cancellationToken);
+        var employeeSalaryScales = await DistinctValuesAsync(Rows().Select(x => x.SalaryScale), cancellationToken);
+        var conversionSalaryScales = await hrStaffDbContext.Database
+            .SqlQueryRaw<string>("""
+                SELECT DISTINCT LTRIM(RTRIM(GazetteCode)) AS Value
+                FROM dbo.SalaryConversionPoints
+                WHERE NULLIF(LTRIM(RTRIM(GazetteCode)), '') IS NOT NULL
+                """)
+            .ToListAsync(cancellationToken);
+        var employeeGrades = await DistinctValuesAsync(Rows().Select(x => x.Grade), cancellationToken);
+        var conversionGrades = await hrStaffDbContext.Database
+            .SqlQueryRaw<string>("""
+                SELECT DISTINCT LTRIM(RTRIM(GradeCode)) AS Value
+                FROM dbo.SalaryConversionPoints
+                WHERE NULLIF(LTRIM(RTRIM(GradeCode)), '') IS NOT NULL
+                """)
+            .ToListAsync(cancellationToken);
+        var designations = await DistinctValuesAsync(Rows().Select(x => x.Designation), cancellationToken);
+
+        return new EmployeeLookupOptionsDto(
+            departments,
+            locations,
+            MergeValues(employeeSalaryScales, conversionSalaryScales),
+            MergeValues(employeeGrades, conversionGrades),
+            designations);
     }
 
     public async Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(
@@ -140,6 +190,53 @@ internal sealed class HrStaffEmployeeReader(
 
     private IQueryable<HrStaffEmployeeRow> Rows() =>
         hrStaffDbContext.Employees.AsNoTracking();
+
+    private static async Task<IReadOnlyList<string>> DistinctValuesAsync(
+        IQueryable<string> query,
+        CancellationToken cancellationToken)
+    {
+        var values = await query
+            .Where(value => value.Trim() != string.Empty)
+            .Select(value => value.Trim())
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> MergeValues(
+        IEnumerable<string> first,
+        IEnumerable<string> second) =>
+        first.Concat(second)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static string? NullIfWhiteSpace(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static (string FirstName, string LastName) SplitFullName(string fullName)
+    {
+        var normalized = string.Join(' ', fullName
+            .Trim()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        var splitIndex = normalized.LastIndexOf(' ');
+        if (splitIndex <= 0) return (normalized, string.Empty);
+
+        return (
+            normalized[..splitIndex],
+            normalized[(splitIndex + 1)..]);
+    }
 
     private static IQueryable<EmployeeDto> Project(IQueryable<HrStaffEmployeeRow> query) => query
         .Select(x => new EmployeeDto(

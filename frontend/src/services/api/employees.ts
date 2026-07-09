@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { DepartmentSummary, Employee, EmployeeSearchResult } from '../../types/employee';
+import { DepartmentSummary, Employee, EmployeeLookupOptions, EmployeeSearchResult } from '../../types/employee';
 
 type SearchEmployeesParams = {
   search?: string;
@@ -19,13 +19,20 @@ type DueIncrementsParams = {
 };
 
 export type UpdateEmployeeRequest = {
+  fullName: string;
   designation: string;
   grade: string;
   department: string;
   location: string;
+  salaryScale: string;
   appointmentDate: string;
   promotionDate: string | null;
   nextIncrementDate: string | null;
+  currentSalary: number;
+  basicSalary2027: number;
+  incrementAmount: number;
+  stagnationAllowance: number;
+  salaryPoint: number | null;
 };
 
 export async function searchEmployees(params: SearchEmployeesParams = {}) {
@@ -51,6 +58,11 @@ export async function getAllDueIncrements(params: Omit<DueIncrementsParams, 'pag
 
 export async function getDepartments() {
   const response = await apiClient.get<DepartmentSummary[]>('/employees/departments');
+  return response.data;
+}
+
+export async function getEmployeeLookupOptions() {
+  const response = await apiClient.get<EmployeeLookupOptions>('/employees/lookup-options');
   return response.data;
 }
 

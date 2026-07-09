@@ -33,6 +33,13 @@ public sealed class EmployeesController(IEmployeeReader employeeReader) : Contro
         CancellationToken cancellationToken) =>
         Ok(await employeeReader.GetDepartmentsAsync(ParseDataSource(dataSource), cancellationToken));
 
+    [HttpGet("lookup-options")]
+    [ProducesResponseType<EmployeeLookupOptionsDto>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<EmployeeLookupOptionsDto>> GetLookupOptions(
+        [FromHeader(Name = DataSourceHeader)] string? dataSource,
+        CancellationToken cancellationToken) =>
+        Ok(await employeeReader.GetLookupOptionsAsync(ParseDataSource(dataSource), cancellationToken));
+
     [HttpGet("{employeeNumber}")]
     [ProducesResponseType<EmployeeDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
