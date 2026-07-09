@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAllDueIncrements, getDueIncrements, searchEmployees } from '../services/api/employees';
 import { getIncrementWorkflows } from '../services/api/incrementWorkflows';
 import { Employee } from '../types/employee';
+import { IncrementWorkflow } from '../types/incrementWorkflow';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
@@ -122,6 +123,37 @@ function getDaysUntil(dateValue: string | null) {
   return Math.ceil((dueDate.getTime() - today.getTime()) / 86_400_000);
 }
 
+function formatActivityTime(value: string | null | undefined) {
+  if (!value) return 'Current session';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Current session';
+  return new Intl.DateTimeFormat('en-LK', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function workflowActivityText(workflow: IncrementWorkflow) {
+  if (workflow.status === 'Approved' || workflow.status === 'Finalized') {
+    return 'increment was approved';
+  }
+  if (workflow.status === 'Rejected') {
+    return 'increment was not approved';
+  }
+  if (workflow.status === 'PendingApproval') {
+    return 'is waiting for approval';
+  }
+  if (workflow.status === 'PendingAssessment') {
+    return 'was moved to assessment';
+  }
+  if (workflow.status === 'ReturnedToIncrement') {
+    return 'was returned to increments';
+  }
+  return 'workflow was updated';
+}
+
 function initials(employee: Employee) {
   return getEmployeeName(employee)
     .split(' ')
@@ -157,6 +189,7 @@ export function DashboardPage() {
   const [dueThisMonth, setDueThisMonth] = useState<Employee[]>([]);
   const [upcomingIncrements, setUpcomingIncrements] = useState<Employee[]>([]);
   const [upcomingTabRows, setUpcomingTabRows] = useState<Employee[]>([]);
+  const [recentWorkflows, setRecentWorkflows] = useState<IncrementWorkflow[]>([]);
   const [usingExport, setUsingExport] = useState(false);
 
   useEffect(() => {
@@ -225,6 +258,11 @@ export function DashboardPage() {
         const toValue = toDateInput(range.to);
         const periodWorkflows = workflows.filter((workflow) =>
           workflow.incrementDate >= fromValue && workflow.incrementDate <= toValue);
+        const latestWorkflows = [...periodWorkflows].sort((left, right) => {
+          const leftDate = left.modifiedAtUtc ?? left.createdAtUtc;
+          const rightDate = right.modifiedAtUtc ?? right.createdAtUtc;
+          return new Date(rightDate).getTime() - new Date(leftDate).getTime();
+        });
         const blockedKeys = new Set(
           periodWorkflows
             .filter((workflow) => !['Draft', 'ReturnedToIncrement'].includes(workflow.status))
@@ -248,6 +286,7 @@ export function DashboardPage() {
             notStarted,
             total: completed + inReview + notStarted,
           });
+          setRecentWorkflows(latestWorkflows.slice(0, 2));
         }
       } catch {
         if (!ignore) {
@@ -258,6 +297,7 @@ export function DashboardPage() {
             notStarted: 0,
             total: 0,
           });
+          setRecentWorkflows([]);
         }
       }
     };
@@ -321,10 +361,23 @@ export function DashboardPage() {
             <article className="panel activity-panel">
               <div className="panel__header"><div><h2>Recent activity</h2><p>Latest updates from your team</p></div><button className="more-button" onClick={() => navigate('/audit-logs')} aria-label="View activity">•••</button></div>
               <div className="activity-list">
-                <div className="activity"><span className="activity__icon mint"><CircleCheck size={17} /></span><div><p><strong>You approved</strong> 8 increment assessments</p><small>12 minutes ago</small></div></div>
-                <div className="activity"><span className="activity__icon violet"><FileText size={17} /></span><div><p><strong>Ruwan Jayasinghe</strong> generated an assessment form</p><small>1 hour ago</small></div></div>
-                <div className="activity"><span className="activity__icon amber"><Clock3 size={17} /></span><div><p><strong>5 assessments</strong> were submitted for your review</p><small>3 hours ago</small></div></div>
-                <div className="activity"><span className="activity__icon blue"><Users size={17} /></span><div><p>{sourceLabel} employee data loaded successfully</p><small>Current session</small></div></div>
+                {recentWorkflows.map((workflow) => (
+                  <div className="activity" key={workflow.id}>
+                    <span className={workflow.status === 'Approved' || workflow.status === 'Finalized' ? 'activity__icon mint' : workflow.status === 'Rejected' ? 'activity__icon amber' : 'activity__icon violet'}>
+                      {workflow.status === 'Approved' || workflow.status === 'Finalized' ? <CircleCheck size={17} /> : <FileText size={17} />}
+                    </span>
+                    <div>
+                      <p><strong>{workflow.employeeName || workflow.payCode}</strong> {workflowActivityText(workflow)}</p>
+                      <small>{formatActivityTime(workflow.modifiedAtUtc ?? workflow.createdAtUtc)}</small>
+                    </div>
+                  </div>
+                ))}
+                {recentWorkflows.length === 0 && (
+                  <div className="activity"><span className="activity__icon violet"><FileText size={17} /></span><div><p><strong>No workflow updates</strong> recorded for {periodLabel}</p><small>Current session</small></div></div>
+                )}
+                <div className="activity"><span className="activity__icon amber"><Clock3 size={17} /></span><div><p><strong>{progress.awaitingApproval}</strong> increment assessments waiting for approval</p><small>{periodLabel}</small></div></div>
+                <div className="activity"><span className="activity__icon mint"><CircleCheck size={17} /></span><div><p><strong>{progress.completed}</strong> increments completed in this cycle</p><small>{periodLabel}</small></div></div>
+                <div className="activity"><span className="activity__icon blue"><Users size={17} /></span><div><p><strong>{sourceLabel}</strong> loaded {totalEmployees?.toLocaleString('en-LK') ?? '...'} employee records</p><small>Current session</small></div></div>
               </div>
               <button className="activity-footer" onClick={() => navigate('/audit-logs')}>View activity log <ArrowRight size={15} /></button>
             </article>
