@@ -119,8 +119,8 @@ export function DashboardLayout() {
           <ArrowRight size={16} />
         </button>
         <button className="user-card" onClick={signOut} aria-label="Sign out">
-          <span className="avatar">KS</span>
-          <span><strong>Kavindi Silva</strong><small>HR Administrator</small></span>
+          <span className="avatar">AD</span>
+          <span><strong>admin</strong><small>System Administrator</small></span>
           <LogOut size={17} />
         </button>
       </aside>
@@ -139,7 +139,7 @@ export function DashboardLayout() {
             </div>
             <span className="topbar__divider" />
             <div className="action-menu">
-              <button className="profile-button" onClick={() => { setProfileOpen(!profileOpen); setNotificationsOpen(false); }}><span className="avatar">KS</span><span>Kavindi Silva</span><ChevronDown size={15} /></button>
+              <button className="profile-button" onClick={() => { setProfileOpen(!profileOpen); setNotificationsOpen(false); }}><span className="avatar">AD</span><span>admin</span><ChevronDown size={15} /></button>
               {profileOpen && <div className="popover profile-popover"><button onClick={() => navigate('/settings')}><Settings size={15} /> Settings</button><button onClick={signOut}><LogOut size={15} /> Sign out</button></div>}
             </div>
           </div>
