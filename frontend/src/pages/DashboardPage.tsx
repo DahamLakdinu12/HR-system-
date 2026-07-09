@@ -161,6 +161,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     const today = new Date();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     const next14Days = new Date(today);
     next14Days.setDate(today.getDate() + 14);
@@ -172,7 +173,7 @@ export function DashboardPage() {
       .catch(() => setTotalEmployees(null));
 
     getAllDueIncrements({
-      from: toDateInput(today),
+      from: toDateInput(monthStart),
       to: toDateInput(monthEnd),
     })
       .then(setDueThisMonth)
