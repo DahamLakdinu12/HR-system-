@@ -19,7 +19,7 @@ const navItems = [
   { icon: ClipboardCheck, label: 'Assessments', path: '/assessments' },
   { icon: CircleCheck, label: 'Approvals', path: '/approvals' },
   { icon: FileText, label: 'Reports', path: '/reports' },
-  { icon: WalletCards, label: 'Salary scales', path: '/salary-scales' },
+  { icon: WalletCards, label: 'Promotion', path: '/promotion' },
 ];
 
 export function DashboardLayout() {

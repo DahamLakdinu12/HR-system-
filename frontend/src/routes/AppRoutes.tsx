@@ -26,7 +26,8 @@ export function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="increments" element={<IncrementPage />} />
-        <Route path="salary-scales" element={<ModulePage title="Salary scales" description="Manage gazette salary scales, points and effective dates." />} />
+        <Route path="promotion" element={<ModulePage title="Promotion" description="Manage employee promotion workflows and grade progression." />} />
+        <Route path="salary-scales" element={<Navigate to="/promotion" replace />} />
         <Route path="assessments" element={<AssessmentsPage />} />
         <Route path="approvals" element={<ApprovalsPage />} />
         <Route path="reports" element={<ReportsPage />} />
