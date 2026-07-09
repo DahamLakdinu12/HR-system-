@@ -143,13 +143,27 @@ internal sealed class HrStaffEmployeeReader(
                 """)
             .ToListAsync(cancellationToken);
         var designations = await DistinctValuesAsync(Rows().Select(x => x.Designation), cancellationToken);
+        var salarySteps = await hrStaffDbContext.Database
+            .SqlQueryRaw<EmployeeSalaryStepOptionDto>("""
+                SELECT
+                    LTRIM(RTRIM(GradeCode)) AS GradeCode,
+                    LTRIM(RTRIM(GazetteCode)) AS GazetteCode,
+                    SalaryStep,
+                    BasicSalary2026,
+                    BasicSalary2027,
+                    IncrementAmount
+                FROM dbo.SalaryConversionPoints
+                ORDER BY GradeCode, SalaryStep
+                """)
+            .ToListAsync(cancellationToken);
 
         return new EmployeeLookupOptionsDto(
             departments,
             locations,
             MergeValues(employeeSalaryScales, conversionSalaryScales),
             MergeValues(employeeGrades, conversionGrades),
-            designations);
+            designations,
+            salarySteps);
     }
 
     public async Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(

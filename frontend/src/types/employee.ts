@@ -39,4 +39,14 @@ export type EmployeeLookupOptions = {
   salaryScales: string[];
   grades: string[];
   designations: string[];
+  salarySteps: EmployeeSalaryStepOption[];
+};
+
+export type EmployeeSalaryStepOption = {
+  gradeCode: string;
+  gazetteCode: string;
+  salaryStep: number;
+  basicSalary2026: number;
+  basicSalary2027: number;
+  incrementAmount: number;
 };

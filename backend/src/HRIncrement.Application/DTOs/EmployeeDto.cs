@@ -37,7 +37,16 @@ public sealed record EmployeeLookupOptionsDto(
     IReadOnlyList<string> Locations,
     IReadOnlyList<string> SalaryScales,
     IReadOnlyList<string> Grades,
-    IReadOnlyList<string> Designations);
+    IReadOnlyList<string> Designations,
+    IReadOnlyList<EmployeeSalaryStepOptionDto> SalarySteps);
+
+public sealed record EmployeeSalaryStepOptionDto(
+    string GradeCode,
+    string GazetteCode,
+    int SalaryStep,
+    decimal BasicSalary2026,
+    decimal BasicSalary2027,
+    decimal IncrementAmount);
 
 public sealed record UpdateHrStaffEmployeeRequest(
     string FullName,

@@ -32,6 +32,7 @@ const emptyLookupOptions: EmployeeLookupOptions = {
   salaryScales: [],
   grades: [],
   designations: [],
+  salarySteps: [],
 };
 
 const sortFields: SortField[] = ['employee', 'payCode', 'designation', 'grade', 'department', 'location', 'incrementDate', 'currentSalary'];
@@ -251,6 +252,31 @@ function selectOptions(options: string[], currentValue: string) {
   return hasCurrent ? options : [normalized, ...options];
 }
 
+function getSalaryStepOptions(options: EmployeeLookupOptions, grade: string) {
+  const normalizedGrade = grade.trim().toLowerCase();
+  if (!normalizedGrade) return [];
+
+  return options.salarySteps
+    .filter((step) => step.gradeCode.trim().toLowerCase() === normalizedGrade)
+    .sort((left, right) => left.salaryStep - right.salaryStep);
+}
+
+function applySalaryStep(form: EmployeeEditForm, stepValue: string, options: EmployeeLookupOptions) {
+  const selectedStep = getSalaryStepOptions(options, form.grade)
+    .find((step) => String(step.salaryStep) === stepValue);
+
+  if (!selectedStep) return { ...form, salaryPoint: stepValue };
+
+  return {
+    ...form,
+    salaryPoint: String(selectedStep.salaryStep),
+    currentSalary: toNumberField(selectedStep.basicSalary2026),
+    basicSalary2027: toNumberField(selectedStep.basicSalary2027),
+    incrementAmount: toNumberField(selectedStep.incrementAmount),
+    salaryScale: selectedStep.gazetteCode || form.salaryScale,
+  };
+}
+
 function formatMoney(value: number) {
   if (!value) return 'Not available';
   return new Intl.NumberFormat('en-LK', {
@@ -401,6 +427,7 @@ export function EmployeesPage() {
     (total, department) => total + department.employeeCount,
     0,
   );
+  const salaryStepOptions = editForm ? getSalaryStepOptions(lookupOptions, editForm.grade) : [];
 
   const updateRoute = (
     nextPayCode: string,
@@ -463,6 +490,15 @@ export function EmployeesPage() {
           appointmentDate: value,
           nextIncrementDate: deriveIncrementDate(value),
         };
+      }
+      if (field === 'grade') {
+        const nextForm = { ...current, grade: value };
+        return current.salaryPoint
+          ? applySalaryStep(nextForm, current.salaryPoint, lookupOptions)
+          : nextForm;
+      }
+      if (field === 'salaryPoint') {
+        return applySalaryStep(current, value, lookupOptions);
       }
       return { ...current, [field]: value };
     });
@@ -880,7 +916,18 @@ export function EmployeesPage() {
                   </label>
                   <label>
                     Salary point
-                    <input type="number" min="0" step="1" value={editForm.salaryPoint} onChange={(event) => updateEditField('salaryPoint', event.target.value)} />
+                    <select value={editForm.salaryPoint} onChange={(event) => updateEditField('salaryPoint', event.target.value)}>
+                      <option value="">Select salary step</option>
+                      {salaryStepOptions.map((step) => (
+                        <option key={`${step.gradeCode}-${step.salaryStep}`} value={step.salaryStep}>
+                          Step {step.salaryStep} - {formatMoney(step.basicSalary2027)}
+                        </option>
+                      ))}
+                      {editForm.salaryPoint && !salaryStepOptions.some((step) => String(step.salaryStep) === editForm.salaryPoint) && (
+                        <option value={editForm.salaryPoint}>Step {editForm.salaryPoint}</option>
+                      )}
+                    </select>
+                    <small>Selecting a step fills the 2026 salary, 2027 salary, and increment amount from the salary table.</small>
                   </label>
                   <div className="employee-edit-form__actions">
                     <button className="secondary-button" onClick={() => setEditForm(null)} disabled={savingEmployee} type="button">Cancel</button>
