@@ -1,10 +1,14 @@
-import { TrendingUp } from 'lucide-react';
+import boiLogo from '../../assets/images/boi-logo.png';
 
 export function Logo({ inverse = false }: { inverse?: boolean }) {
   return (
     <div className={`logo ${inverse ? 'logo--inverse' : ''}`}>
-      <span className="logo__mark"><TrendingUp size={22} strokeWidth={2.5} /></span>
-      <span className="logo__text">elevate<span>HR</span></span>
+      <img className="logo__image" src={boiLogo} alt="BOI Sri Lanka" />
+      <span className="logo__text">
+        <strong>Board of</strong>
+        <strong>Investment</strong>
+        <strong>of Sri Lanka</strong>
+      </span>
     </div>
   );
 }
