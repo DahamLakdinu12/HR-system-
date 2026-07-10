@@ -16,6 +16,7 @@ frontend/.env.local
 # Local configuration and tooling
 .DS_Store
 *.log
+artifacts/
 TestResults/
 .idea/
 .vscode/

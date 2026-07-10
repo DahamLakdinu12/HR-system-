@@ -1,0 +1,15 @@
+# Copy these into the server environment, IIS app settings, systemd service,
+# Docker secret manager, or the organization's approved secret store.
+
+ASPNETCORE_ENVIRONMENT=Production
+ASPNETCORE_URLS=http://0.0.0.0:5180
+
+ConnectionStrings__ApplicationDatabase=Server=SERVER_NAME;Database=HRIncrement;User Id=APP_USER;Password=PASSWORD;Encrypt=True;TrustServerCertificate=True
+ConnectionStrings__HrStaffDatabase=Server=SERVER_NAME;Database=HRStaff;User Id=APP_USER;Password=PASSWORD;Encrypt=True;TrustServerCertificate=True;ApplicationIntent=ReadOnly
+
+Cors__AllowedOrigins__0=https://hr.company.local
+QuestPdf__License=Community
+
+# Optional external HCM leave particulars API used in generated PDFs.
+HcmLeaveApi__BaseUrl=
+HcmLeaveApi__ApiKey=
