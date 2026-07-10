@@ -55,6 +55,29 @@ public sealed class EmployeesController(IEmployeeReader employeeReader) : Contro
         return employee is null ? NotFound() : Ok(employee);
     }
 
+    [HttpPost]
+    [Authorize(Policy = "CanProcessIncrements")]
+    [ProducesResponseType<EmployeeDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<EmployeeDto>> CreateHrStaffEmployee(
+        CreateHrStaffEmployeeRequest request,
+        [FromHeader(Name = DataSourceHeader)] string? dataSource,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var employee = await employeeReader.CreateHrStaffEmployeeAsync(request, cancellationToken);
+            return CreatedAtAction(
+                nameof(GetByEmployeeNumber),
+                new { employeeNumber = employee.EmployeeNumber, dataSource = ParseDataSource(dataSource) },
+                employee);
+        }
+        catch (InvalidOperationException error)
+        {
+            return Conflict(new ProblemDetails { Title = error.Message });
+        }
+    }
+
     [HttpPut("{employeeNumber}")]
     [Authorize(Policy = "CanProcessIncrements")]
     [ProducesResponseType<EmployeeDto>(StatusCodes.Status200OK)]

@@ -120,6 +120,88 @@ internal sealed class HrStaffEmployeeReader(
             ?? throw new KeyNotFoundException("Employee record could not be reloaded after update.");
     }
 
+    public async Task<EmployeeDto> CreateHrStaffEmployeeAsync(
+        CreateHrStaffEmployeeRequest request,
+        CancellationToken cancellationToken)
+    {
+        ValidateCreateRequest(request);
+
+        var payCode = request.PayCode.Trim();
+        var existing = await GetByEmployeeNumberAsync(EmployeeDataSource.HrStaff, payCode, cancellationToken);
+        if (existing is not null)
+            throw new InvalidOperationException("An employee with this pay code already exists.");
+
+        var (firstName, lastName) = SplitFullName(request.FullName);
+        decimal? basicSalary2027 = request.BasicSalary2027 > 0 ? request.BasicSalary2027 : null;
+        decimal? stagnationAllowance = request.StagnationAllowance > 0 ? request.StagnationAllowance : null;
+        var salaryPoint = request.SalaryPoint ?? 0;
+
+        var affected = await hrStaffDbContext.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO dbo.Employees
+            (
+                PayCode,
+                Sex,
+                FirstName,
+                LastName,
+                DateOfBirth,
+                DateJoined,
+                DateOfPromotion,
+                IncrementLevel,
+                SalaryPoint,
+                StagnationAllowance,
+                StagnationAllowanceNote,
+                DateRetired,
+                NextIncrementDate,
+                PayableSalary2026,
+                PostDescription,
+                BasicSalary2027,
+                SalaryScale,
+                StartPoint,
+                IncrementAmount,
+                SequenceNumber,
+                NumberOfIncrements,
+                ExistingGradeCode,
+                NewGrade,
+                WorkLocation,
+                Department
+            )
+            VALUES
+            (
+                {payCode},
+                {request.Sex.Trim()},
+                {firstName},
+                {lastName},
+                {request.DateOfBirth},
+                {request.AppointmentDate},
+                {request.PromotionDate},
+                {salaryPoint},
+                {salaryPoint},
+                {stagnationAllowance},
+                NULL,
+                NULL,
+                {request.NextIncrementDate},
+                {request.CurrentSalary},
+                {request.Designation.Trim()},
+                {basicSalary2027},
+                {NullIfWhiteSpace(request.SalaryScale)},
+                {request.CurrentSalary},
+                {request.IncrementAmount},
+                0,
+                0,
+                {request.Grade.Trim()},
+                {request.Grade.Trim()},
+                {(request.Location ?? string.Empty).Trim()},
+                {(request.Department ?? string.Empty).Trim()}
+            )
+            """, cancellationToken);
+
+        if (affected != 1)
+            throw new InvalidOperationException("Employee record could not be created.");
+
+        return await GetByEmployeeNumberAsync(EmployeeDataSource.HrStaff, payCode, cancellationToken)
+            ?? throw new KeyNotFoundException("Employee record could not be reloaded after create.");
+    }
+
     public async Task<EmployeeLookupOptionsDto> GetLookupOptionsAsync(
         EmployeeDataSource dataSource,
         CancellationToken cancellationToken)
@@ -250,6 +332,25 @@ internal sealed class HrStaffEmployeeReader(
         return (
             normalized[..splitIndex],
             normalized[(splitIndex + 1)..]);
+    }
+
+    private static void ValidateCreateRequest(CreateHrStaffEmployeeRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.PayCode);
+        if (request.DateOfBirth == default)
+            throw new InvalidOperationException("Date of birth is required.");
+        if (request.AppointmentDate == default)
+            throw new InvalidOperationException("Appointment date is required.");
+        if (string.IsNullOrWhiteSpace(request.Sex))
+            throw new InvalidOperationException("Sex is required.");
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            throw new InvalidOperationException("Employee name is required.");
+        if (string.IsNullOrWhiteSpace(request.Designation))
+            throw new InvalidOperationException("Designation is required.");
+        if (string.IsNullOrWhiteSpace(request.Grade))
+            throw new InvalidOperationException("Grade is required.");
+        if (request.CurrentSalary <= 0)
+            throw new InvalidOperationException("Current salary must be greater than zero.");
     }
 
     private static IQueryable<EmployeeDto> Project(IQueryable<HrStaffEmployeeRow> query) => query

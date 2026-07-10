@@ -64,6 +64,25 @@ public sealed record UpdateHrStaffEmployeeRequest(
     decimal StagnationAllowance,
     int? SalaryPoint);
 
+public sealed record CreateHrStaffEmployeeRequest(
+    string PayCode,
+    string Sex,
+    string FullName,
+    DateOnly DateOfBirth,
+    string Designation,
+    string Grade,
+    string Department,
+    string Location,
+    string SalaryScale,
+    DateOnly AppointmentDate,
+    DateOnly? PromotionDate,
+    DateOnly? NextIncrementDate,
+    decimal CurrentSalary,
+    decimal BasicSalary2027,
+    decimal IncrementAmount,
+    decimal StagnationAllowance,
+    int? SalaryPoint);
+
 public enum EmployeeDataSource
 {
     HrStaff

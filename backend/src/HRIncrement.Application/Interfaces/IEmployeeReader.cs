@@ -25,6 +25,10 @@ public interface IEmployeeReader
         UpdateHrStaffEmployeeRequest request,
         CancellationToken cancellationToken);
 
+    Task<EmployeeDto> CreateHrStaffEmployeeAsync(
+        CreateHrStaffEmployeeRequest request,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(
         EmployeeDataSource dataSource,
         CancellationToken cancellationToken);

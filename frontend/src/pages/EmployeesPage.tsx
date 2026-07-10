@@ -1,7 +1,7 @@
-import { ArrowLeft, ArrowRight, Building2, CalendarDays, Edit3, MapPin, RefreshCw, Save, Search, UserRound, Users, WalletCards, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, CalendarDays, Edit3, MapPin, RefreshCw, Save, Search, UserPlus, UserRound, Users, WalletCards, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getDepartments, getEmployeeLookupOptions, searchEmployees, updateEmployee } from '../services/api/employees';
+import { createEmployee, getDepartments, getEmployeeLookupOptions, searchEmployees, updateEmployee } from '../services/api/employees';
 import { DepartmentSummary, Employee, EmployeeLookupOptions, EmployeeSearchResult } from '../types/employee';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
@@ -10,6 +10,9 @@ const pageSize = 25;
 type SortField = 'employee' | 'payCode' | 'designation' | 'grade' | 'department' | 'location' | 'incrementDate' | 'currentSalary';
 type SortDirection = 'asc' | 'desc';
 type EmployeeEditForm = {
+  payCode: string;
+  sex: string;
+  dateOfBirth: string;
   fullName: string;
   designation: string;
   grade: string;
@@ -228,6 +231,9 @@ function deriveIncrementDate(baseDate: string) {
 
 function getEditForm(employee: Employee): EmployeeEditForm {
   return {
+    payCode: employee.payCode || employee.employeeNumber,
+    sex: '',
+    dateOfBirth: '',
     fullName: getEmployeeName(employee),
     designation: employee.designation,
     grade: employee.grade,
@@ -242,6 +248,28 @@ function getEditForm(employee: Employee): EmployeeEditForm {
     incrementAmount: toNumberField(employee.incrementAmount),
     stagnationAllowance: toNumberField(employee.stagnationAllowance),
     salaryPoint: employee.salaryPoint === null ? '' : String(employee.salaryPoint),
+  };
+}
+
+function getCreateForm(): EmployeeEditForm {
+  return {
+    payCode: '',
+    sex: '',
+    dateOfBirth: '',
+    fullName: '',
+    designation: '',
+    grade: '',
+    department: '',
+    location: '',
+    salaryScale: '',
+    appointmentDate: '',
+    promotionDate: '',
+    nextIncrementDate: '',
+    currentSalary: '',
+    basicSalary2027: '',
+    incrementAmount: '',
+    stagnationAllowance: '',
+    salaryPoint: '',
   };
 }
 
@@ -323,6 +351,7 @@ export function EmployeesPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [previewEmployee, setPreviewEmployee] = useState<Employee | null>(null);
   const [editForm, setEditForm] = useState<EmployeeEditForm | null>(null);
+  const [creatingEmployee, setCreatingEmployee] = useState(false);
   const [savingEmployee, setSavingEmployee] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -331,12 +360,13 @@ export function EmployeesPage() {
   }, [payCode]);
 
   useEffect(() => {
-    if (!previewEmployee) return;
+    if (!previewEmployee && !creatingEmployee) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setPreviewEmployee(null);
         setEditForm(null);
+        setCreatingEmployee(false);
         setEditError(null);
       }
     };
@@ -348,7 +378,7 @@ export function EmployeesPage() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [previewEmployee]);
+  }, [creatingEmployee, previewEmployee]);
 
   useEffect(() => {
     let ignore = false;
@@ -466,11 +496,20 @@ export function EmployeesPage() {
   const closePreview = () => {
     setPreviewEmployee(null);
     setEditForm(null);
+    setCreatingEmployee(false);
     setEditError(null);
   };
 
   const startEditing = (employee: Employee) => {
+    setCreatingEmployee(false);
     setEditForm(getEditForm(employee));
+    setEditError(null);
+  };
+
+  const startCreating = () => {
+    setPreviewEmployee(null);
+    setCreatingEmployee(true);
+    setEditForm(getCreateForm());
     setEditError(null);
   };
 
@@ -506,12 +545,12 @@ export function EmployeesPage() {
 
   const handleSaveEmployee = async (event: FormEvent) => {
     event.preventDefault();
-    if (!previewEmployee || !editForm) return;
+    if (!editForm) return;
 
     setSavingEmployee(true);
     setEditError(null);
     try {
-      const updated = await updateEmployee(previewEmployee.employeeNumber, {
+      const payload = {
         fullName: editForm.fullName,
         designation: editForm.designation,
         grade: editForm.grade,
@@ -526,20 +565,34 @@ export function EmployeesPage() {
         incrementAmount: Number(editForm.incrementAmount || 0),
         stagnationAllowance: Number(editForm.stagnationAllowance || 0),
         salaryPoint: editForm.salaryPoint ? Number(editForm.salaryPoint) : null,
-      });
+      };
+      const updated = creatingEmployee
+        ? await createEmployee({
+            ...payload,
+            payCode: editForm.payCode,
+            sex: editForm.sex,
+            dateOfBirth: editForm.dateOfBirth,
+          })
+        : await updateEmployee(previewEmployee?.employeeNumber ?? editForm.payCode, payload);
 
       setPreviewEmployee(updated);
       setEditForm(null);
+      setCreatingEmployee(false);
       setResult((current) => current
         ? {
             ...current,
-            items: current.items.map((employee) =>
-              employee.employeeNumber === updated.employeeNumber ? updated : employee),
+            totalCount: creatingEmployee ? current.totalCount + 1 : current.totalCount,
+            items: creatingEmployee
+              ? [updated, ...current.items].slice(0, pageSize)
+              : current.items.map((employee) =>
+                  employee.employeeNumber === updated.employeeNumber ? updated : employee),
           }
         : current);
       setRefreshKey((value) => value + 1);
     } catch {
-      setEditError('Employee details could not be saved. Confirm HR staff database is selected and backend is running.');
+      setEditError(creatingEmployee
+        ? 'Employee could not be created. Check that the pay code is unique and required fields are filled.'
+        : 'Employee details could not be saved. Confirm HR staff database is selected and backend is running.');
     } finally {
       setSavingEmployee(false);
     }
@@ -610,6 +663,9 @@ export function EmployeesPage() {
           </form>
           <button className="filter-button" onClick={() => setRefreshKey((value) => value + 1)}>
             <RefreshCw size={15} /> Refresh
+          </button>
+          <button className="filter-button" onClick={startCreating} type="button">
+            <UserPlus size={15} /> Add employee
           </button>
         </div>
 
@@ -798,7 +854,7 @@ export function EmployeesPage() {
         </section>
       )}
 
-      {previewEmployee && (
+      {(previewEmployee || creatingEmployee) && (
         <div className="employee-preview-overlay" role="presentation" onMouseDown={closePreview}>
           <aside
             className="employee-preview-drawer"
@@ -809,19 +865,21 @@ export function EmployeesPage() {
           >
             <header className="employee-preview-header">
               <div>
-                <span className="eyebrow">Employee preview</span>
-                <h2 id="employee-preview-title">{getEmployeeName(previewEmployee)}</h2>
-                <p>{previewEmployee.designation || 'Designation unavailable'}</p>
+                <span className="eyebrow">{creatingEmployee ? 'Employee database' : 'Employee preview'}</span>
+                <h2 id="employee-preview-title">{creatingEmployee ? 'Add new employee' : getEmployeeName(previewEmployee!)}</h2>
+                <p>{creatingEmployee ? 'Create a new HRStaff employee record.' : (previewEmployee!.designation || 'Designation unavailable')}</p>
               </div>
               <div className="employee-preview-header-actions">
-                <button
-                  className="employee-preview-edit-button"
-                  onClick={() => startEditing(previewEmployee)}
-                  aria-label="Edit employee details"
-                  type="button"
-                >
-                  <Edit3 size={15} /> Edit
-                </button>
+                {previewEmployee && !creatingEmployee && (
+                  <button
+                    className="employee-preview-edit-button"
+                    onClick={() => startEditing(previewEmployee)}
+                    aria-label="Edit employee details"
+                    type="button"
+                  >
+                    <Edit3 size={15} /> Edit
+                  </button>
+                )}
                 <button onClick={closePreview} aria-label="Close employee preview" type="button"><X size={20} /></button>
               </div>
             </header>
@@ -831,8 +889,8 @@ export function EmployeesPage() {
                 <form className="employee-edit-form" onSubmit={handleSaveEmployee}>
                   <div className="employee-edit-form__header">
                     <div>
-                      <h3>Edit employee database</h3>
-                      <p>Saving updates the HRStaff SQL table and recalculates the visible increment date from the database view.</p>
+                      <h3>{creatingEmployee ? 'Add employee database record' : 'Edit employee database'}</h3>
+                      <p>{creatingEmployee ? 'Creating saves a new employee into the HRStaff SQL table.' : 'Saving updates the HRStaff SQL table and recalculates the visible increment date from the database view.'}</p>
                     </div>
                     <button className="primary-button" disabled={savingEmployee} type="submit">
                       <Save size={15} /> {savingEmployee ? 'Saving...' : 'Save changes'}
@@ -843,9 +901,25 @@ export function EmployeesPage() {
 
                   <label>
                     Pay code
-                    <input value={previewEmployee.payCode || previewEmployee.employeeNumber} disabled readOnly />
-                    <small>Paycode is locked because it is the database key.</small>
+                    <input value={editForm.payCode} onChange={(event) => updateEditField('payCode', event.target.value)} disabled={!creatingEmployee} readOnly={!creatingEmployee} required />
+                    <small>{creatingEmployee ? 'This becomes the employee database key.' : 'Paycode is locked because it is the database key.'}</small>
                   </label>
+                  {creatingEmployee && (
+                    <>
+                      <label>
+                        Sex
+                        <select value={editForm.sex} onChange={(event) => updateEditField('sex', event.target.value)} required>
+                          <option value="">Select sex</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                        </select>
+                      </label>
+                      <label>
+                        Date of birth
+                        <input type="date" value={editForm.dateOfBirth} onChange={(event) => updateEditField('dateOfBirth', event.target.value)} required />
+                      </label>
+                    </>
+                  )}
                   <label>
                     Employee name
                     <input value={editForm.fullName} onChange={(event) => updateEditField('fullName', event.target.value)} required />
@@ -935,54 +1009,58 @@ export function EmployeesPage() {
                 </form>
               )}
 
-              <section className="employee-preview-identity">
-                <span className="employee-preview-avatar">{initials(previewEmployee)}</span>
-                <div><strong>{getEmployeeName(previewEmployee)}</strong><span>{previewEmployee.payCode || previewEmployee.employeeNumber}</span></div>
-                <span className={previewEmployee.salaryConversionStatus === 'Applied' ? 'status status--ready' : 'status status--review'}>
-                  {previewEmployee.salaryConversionStatus === 'Applied' ? 'Gazette applied' : previewEmployee.salaryConversionStatus}
-                </span>
-              </section>
+              {previewEmployee && (
+                <>
+                  <section className="employee-preview-identity">
+                    <span className="employee-preview-avatar">{initials(previewEmployee)}</span>
+                    <div><strong>{getEmployeeName(previewEmployee)}</strong><span>{previewEmployee.payCode || previewEmployee.employeeNumber}</span></div>
+                    <span className={previewEmployee.salaryConversionStatus === 'Applied' ? 'status status--ready' : 'status status--review'}>
+                      {previewEmployee.salaryConversionStatus === 'Applied' ? 'Gazette applied' : previewEmployee.salaryConversionStatus}
+                    </span>
+                  </section>
 
-              <section className="employee-preview-section">
-                <h3><UserRound size={16} /> Employment</h3>
-                <dl>
-                  <div><dt>Employee number</dt><dd>{previewEmployee.employeeNumber || '-'}</dd></div>
-                  <div><dt>Pay code</dt><dd>{previewEmployee.payCode || '-'}</dd></div>
-                  <div><dt>Designation</dt><dd>{previewEmployee.designation || '-'}</dd></div>
-                  <div><dt>Grade</dt><dd>{previewEmployee.grade || '-'}</dd></div>
-                </dl>
-              </section>
+                  <section className="employee-preview-section">
+                    <h3><UserRound size={16} /> Employment</h3>
+                    <dl>
+                      <div><dt>Employee number</dt><dd>{previewEmployee.employeeNumber || '-'}</dd></div>
+                      <div><dt>Pay code</dt><dd>{previewEmployee.payCode || '-'}</dd></div>
+                      <div><dt>Designation</dt><dd>{previewEmployee.designation || '-'}</dd></div>
+                      <div><dt>Grade</dt><dd>{previewEmployee.grade || '-'}</dd></div>
+                    </dl>
+                  </section>
 
-              <section className="employee-preview-section">
-                <h3><MapPin size={16} /> Organization</h3>
-                <dl>
-                  <div><dt>Department</dt><dd>{previewEmployee.department || 'Unassigned'}</dd></div>
-                  <div><dt>Location</dt><dd>{previewEmployee.location || '-'}</dd></div>
-                  <div><dt>Data source</dt><dd>{sourceLabel}</dd></div>
-                  <div><dt>Salary scale</dt><dd>{previewEmployee.salaryScale || '-'}</dd></div>
-                </dl>
-              </section>
+                  <section className="employee-preview-section">
+                    <h3><MapPin size={16} /> Organization</h3>
+                    <dl>
+                      <div><dt>Department</dt><dd>{previewEmployee.department || 'Unassigned'}</dd></div>
+                      <div><dt>Location</dt><dd>{previewEmployee.location || '-'}</dd></div>
+                      <div><dt>Data source</dt><dd>{sourceLabel}</dd></div>
+                      <div><dt>Salary scale</dt><dd>{previewEmployee.salaryScale || '-'}</dd></div>
+                    </dl>
+                  </section>
 
-              <section className="employee-preview-section">
-                <h3><CalendarDays size={16} /> Important dates</h3>
-                <dl>
-                  <div><dt>Appointment date</dt><dd>{formatDate(previewEmployee.appointmentDate)}</dd></div>
-                  <div><dt>Promotion date</dt><dd>{formatDate(previewEmployee.promotionDate)}</dd></div>
-                  <div><dt>Next increment</dt><dd>{formatDate(previewEmployee.incrementDate)}</dd></div>
-                </dl>
-              </section>
+                  <section className="employee-preview-section">
+                    <h3><CalendarDays size={16} /> Important dates</h3>
+                    <dl>
+                      <div><dt>Appointment date</dt><dd>{formatDate(previewEmployee.appointmentDate)}</dd></div>
+                      <div><dt>Promotion date</dt><dd>{formatDate(previewEmployee.promotionDate)}</dd></div>
+                      <div><dt>Next increment</dt><dd>{formatDate(previewEmployee.incrementDate)}</dd></div>
+                    </dl>
+                  </section>
 
-              <section className="employee-preview-section employee-preview-section--salary">
-                <h3><WalletCards size={16} /> Salary and increment</h3>
-                <dl>
-                  <div><dt>Salary point</dt><dd>{previewEmployee.salaryPoint ?? '-'}</dd></div>
-                  <div><dt>Current salary</dt><dd>{formatMoney(previewEmployee.currentSalary)}</dd></div>
-                  <div><dt>Increment amount</dt><dd>{formatMoney(previewEmployee.incrementAmount)}</dd></div>
-                  <div><dt>Converted salary</dt><dd>{formatMoney(previewEmployee.convertedSalary)}</dd></div>
-                  <div><dt>Payable salary</dt><dd>{formatMoney(previewEmployee.payableSalary)}</dd></div>
-                  <div><dt>Stagnation allowance</dt><dd>{formatMoney(previewEmployee.stagnationAllowance)}</dd></div>
-                </dl>
-              </section>
+                  <section className="employee-preview-section employee-preview-section--salary">
+                    <h3><WalletCards size={16} /> Salary and increment</h3>
+                    <dl>
+                      <div><dt>Salary point</dt><dd>{previewEmployee.salaryPoint ?? '-'}</dd></div>
+                      <div><dt>Current salary</dt><dd>{formatMoney(previewEmployee.currentSalary)}</dd></div>
+                      <div><dt>Increment amount</dt><dd>{formatMoney(previewEmployee.incrementAmount)}</dd></div>
+                      <div><dt>Converted salary</dt><dd>{formatMoney(previewEmployee.convertedSalary)}</dd></div>
+                      <div><dt>Payable salary</dt><dd>{formatMoney(previewEmployee.payableSalary)}</dd></div>
+                      <div><dt>Stagnation allowance</dt><dd>{formatMoney(previewEmployee.stagnationAllowance)}</dd></div>
+                    </dl>
+                  </section>
+                </>
+              )}
             </div>
           </aside>
         </div>

@@ -35,6 +35,12 @@ export type UpdateEmployeeRequest = {
   salaryPoint: number | null;
 };
 
+export type CreateEmployeeRequest = UpdateEmployeeRequest & {
+  payCode: string;
+  sex: string;
+  dateOfBirth: string;
+};
+
 export async function searchEmployees(params: SearchEmployeesParams = {}) {
   const response = await apiClient.get<EmployeeSearchResult>('/employees', { params });
   return response.data;
@@ -71,5 +77,10 @@ export async function updateEmployee(employeeNumber: string, request: UpdateEmpl
     `/employees/${encodeURIComponent(employeeNumber)}`,
     request,
   );
+  return response.data;
+}
+
+export async function createEmployee(request: CreateEmployeeRequest) {
+  const response = await apiClient.post<Employee>('/employees', request);
   return response.data;
 }
