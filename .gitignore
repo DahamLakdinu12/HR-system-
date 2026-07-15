@@ -11,11 +11,13 @@ frontend/.env.local
 
 # Local HCM database backups
 /HCM/
+/database/backups/
 /.env
 
 # Local configuration and tooling
 .DS_Store
 *.log
+~$*.xlsx
 artifacts/
 TestResults/
 .idea/

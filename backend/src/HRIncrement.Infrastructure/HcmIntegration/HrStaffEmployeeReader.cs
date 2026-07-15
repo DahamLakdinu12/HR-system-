@@ -1,11 +1,14 @@
 using HRIncrement.Application.DTOs;
 using HRIncrement.Application.Interfaces;
+using HRIncrement.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace HRIncrement.Infrastructure.HcmIntegration;
 
 internal sealed class HrStaffEmployeeReader(
-    HrStaffDbContext hrStaffDbContext) : IEmployeeReader
+    HrStaffDbContext hrStaffDbContext,
+    IEmployeeHistoryService historyService,
+    TimeProvider timeProvider) : IEmployeeReader
 {
     public async Task<EmployeeSearchResultDto> SearchAsync(
         EmployeeDataSource dataSource,
@@ -73,6 +76,7 @@ internal sealed class HrStaffEmployeeReader(
     public async Task<EmployeeDto> UpdateHrStaffEmployeeAsync(
         string employeeNumber,
         UpdateHrStaffEmployeeRequest request,
+        string actor,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(employeeNumber);
@@ -86,6 +90,11 @@ internal sealed class HrStaffEmployeeReader(
             throw new InvalidOperationException("Grade is required.");
         if (request.CurrentSalary <= 0)
             throw new InvalidOperationException("Current salary must be greater than zero.");
+
+        var before = await GetByEmployeeNumberAsync(
+            EmployeeDataSource.HrStaff,
+            employeeNumber,
+            cancellationToken) ?? throw new KeyNotFoundException("Employee record not found in the HR staff database.");
 
         var (firstName, lastName) = SplitFullName(request.FullName);
         decimal? basicSalary2027 = request.BasicSalary2027 > 0 ? request.BasicSalary2027 : null;
@@ -116,12 +125,16 @@ internal sealed class HrStaffEmployeeReader(
         if (affected != 1)
             throw new KeyNotFoundException("Employee record not found in the HR staff database.");
 
-        return await GetByEmployeeNumberAsync(EmployeeDataSource.HrStaff, employeeNumber, cancellationToken)
+        var updated = await GetByEmployeeNumberAsync(EmployeeDataSource.HrStaff, employeeNumber, cancellationToken)
             ?? throw new KeyNotFoundException("Employee record could not be reloaded after update.");
+        TrackEmployeeUpdates(before, updated, actor);
+        await historyService.SaveChangesAsync(cancellationToken);
+        return updated;
     }
 
     public async Task<EmployeeDto> CreateHrStaffEmployeeAsync(
         CreateHrStaffEmployeeRequest request,
+        string actor,
         CancellationToken cancellationToken)
     {
         ValidateCreateRequest(request);
@@ -198,8 +211,22 @@ internal sealed class HrStaffEmployeeReader(
         if (affected != 1)
             throw new InvalidOperationException("Employee record could not be created.");
 
-        return await GetByEmployeeNumberAsync(EmployeeDataSource.HrStaff, payCode, cancellationToken)
+        var created = await GetByEmployeeNumberAsync(EmployeeDataSource.HrStaff, payCode, cancellationToken)
             ?? throw new KeyNotFoundException("Employee record could not be reloaded after create.");
+        historyService.Track(new EmployeeHistoryEntry(
+            created.EmployeeNumber,
+            created.PayCode,
+            created.FullName,
+            DataSourceName,
+            "EmployeeCreated",
+            "Employee record was created from the HR system.",
+            actor,
+            timeProvider.GetUtcNow())
+            .WithPromotionChange(null, created.Grade, created.PromotionDate)
+            .WithIncrement(Guid.Empty, created.IncrementDate ?? created.AppointmentDate,
+                null, created.SalaryPoint, null, created.CurrentSalary, created.IncrementAmount));
+        await historyService.SaveChangesAsync(cancellationToken);
+        return created;
     }
 
     public async Task<EmployeeLookupOptionsDto> GetLookupOptionsAsync(
@@ -287,6 +314,85 @@ internal sealed class HrStaffEmployeeReader(
     private IQueryable<HrStaffEmployeeRow> Rows() =>
         hrStaffDbContext.Employees.AsNoTracking();
 
+    private const string DataSourceName = "hr-staff";
+
+    private void TrackEmployeeUpdates(EmployeeDto before, EmployeeDto updated, string actor)
+    {
+        var occurredAtUtc = timeProvider.GetUtcNow();
+
+        TrackChange("Employee name", before.FullName, updated.FullName);
+        TrackChange("Designation", before.Designation, updated.Designation);
+        TrackChange("Grade", before.Grade, updated.Grade, promotionDate: updated.PromotionDate);
+        TrackChange("Department", before.Department, updated.Department);
+        TrackChange("Location", before.Location, updated.Location);
+        TrackChange("Salary scale", before.SalaryScale, updated.SalaryScale);
+        TrackChange("Appointment date", FormatDate(before.AppointmentDate), FormatDate(updated.AppointmentDate));
+        TrackChange("Promotion date", FormatDate(before.PromotionDate), FormatDate(updated.PromotionDate));
+        TrackChange("Next increment date", FormatDate(before.IncrementDate), FormatDate(updated.IncrementDate));
+        TrackChange("Current salary", FormatMoney(before.CurrentSalary), FormatMoney(updated.CurrentSalary));
+        TrackChange("Basic salary 2027", FormatMoney(before.PresentBasicSalary), FormatMoney(updated.PresentBasicSalary));
+        TrackChange("Increment amount", FormatMoney(before.IncrementAmount), FormatMoney(updated.IncrementAmount));
+        TrackChange("Stagnation allowance", FormatMoney(before.StagnationAllowance), FormatMoney(updated.StagnationAllowance));
+        TrackChange("Salary point", before.SalaryPoint?.ToString(), updated.SalaryPoint?.ToString());
+
+        if (before.SalaryPoint != updated.SalaryPoint ||
+            before.CurrentSalary != updated.CurrentSalary ||
+            before.PresentBasicSalary != updated.PresentBasicSalary ||
+            before.IncrementAmount != updated.IncrementAmount)
+        {
+            historyService.Track(new EmployeeHistoryEntry(
+                updated.EmployeeNumber,
+                updated.PayCode,
+                updated.FullName,
+                DataSourceName,
+                "SalaryStepAdjusted",
+                "Salary step details were changed from the Employee page.",
+                actor,
+                occurredAtUtc)
+                .WithIncrement(
+                    Guid.Empty,
+                    updated.IncrementDate ?? updated.AppointmentDate,
+                    before.SalaryPoint,
+                    updated.SalaryPoint,
+                    before.CurrentSalary,
+                    updated.CurrentSalary,
+                    updated.IncrementAmount));
+        }
+
+        void TrackChange(
+            string fieldName,
+            string? previousValue,
+            string? newValue,
+            DateOnly? promotionDate = null)
+        {
+            if (string.Equals(
+                    Normalize(previousValue),
+                    Normalize(newValue),
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var entry = new EmployeeHistoryEntry(
+                updated.EmployeeNumber,
+                updated.PayCode,
+                updated.FullName,
+                DataSourceName,
+                fieldName == "Grade" || fieldName == "Promotion date"
+                    ? "PromotionChanged"
+                    : "EmployeeUpdated",
+                $"{fieldName} changed.",
+                actor,
+                occurredAtUtc)
+                .WithFieldChange(fieldName, previousValue, newValue);
+
+            if (fieldName == "Grade")
+                entry.WithPromotionChange(previousValue, newValue, promotionDate);
+
+            historyService.Track(entry);
+        }
+    }
+
     private static async Task<IReadOnlyList<string>> DistinctValuesAsync(
         IQueryable<string> query,
         CancellationToken cancellationToken)
@@ -320,6 +426,21 @@ internal sealed class HrStaffEmployeeReader(
         var trimmed = value?.Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
+
+    private static string? Normalize(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static string? FormatDate(DateOnly? value) =>
+        value?.ToString("yyyy-MM-dd");
+
+    private static string FormatDate(DateOnly value) =>
+        value.ToString("yyyy-MM-dd");
+
+    private static string? FormatMoney(decimal value) =>
+        value == 0 ? null : decimal.Round(value, 2).ToString("0.##");
 
     private static (string FirstName, string LastName) SplitFullName(string fullName)
     {

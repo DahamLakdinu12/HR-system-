@@ -1,8 +1,9 @@
-import { ArrowLeft, ArrowRight, Building2, CalendarDays, Edit3, MapPin, RefreshCw, Save, Search, UserPlus, UserRound, Users, WalletCards, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, CalendarDays, Clock3, Edit3, History, MapPin, RefreshCw, Save, Search, UserPlus, UserRound, Users, WalletCards, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { createEmployee, getDepartments, getEmployeeLookupOptions, searchEmployees, updateEmployee } from '../services/api/employees';
+import { createEmployee, getDepartments, getEmployeeHistory, getEmployeeLookupOptions, searchEmployees, updateEmployee } from '../services/api/employees';
 import { DepartmentSummary, Employee, EmployeeLookupOptions, EmployeeSearchResult } from '../types/employee';
+import { EmployeeHistoryEntry } from '../types/employee';
 import { useDataSource } from '../context/DataSourceContext';
 import { getEmployeeDataSourceLabel } from '../constants/dataSources';
 
@@ -314,6 +315,41 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
+function formatOptionalMoney(value: number | null) {
+  return value === null ? '-' : formatMoney(value);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('en-LK', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function getHistoryTitle(entry: EmployeeHistoryEntry) {
+  switch (entry.eventType) {
+    case 'ApprovedIncrement':
+      return 'Increment approved';
+    case 'MovedToAssessment':
+      return 'Moved to assessment';
+    case 'RejectedAssessment':
+      return 'Assessment declined';
+    case 'ReturnedToIncrement':
+      return 'Returned to increments';
+    case 'SalaryStepAdjusted':
+      return 'Salary step adjusted';
+    case 'PromotionChanged':
+      return 'Promotion detail changed';
+    case 'EmployeeCreated':
+      return 'Employee created';
+    default:
+      return entry.fieldName ? `${entry.fieldName} updated` : entry.eventType;
+  }
+}
+
 function initials(employee: Employee) {
   return getEmployeeName(employee)
     .split(' ')
@@ -354,6 +390,9 @@ export function EmployeesPage() {
   const [creatingEmployee, setCreatingEmployee] = useState(false);
   const [savingEmployee, setSavingEmployee] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [employeeHistory, setEmployeeHistory] = useState<EmployeeHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     setPayCodeInput(payCode);
@@ -431,6 +470,34 @@ export function EmployeesPage() {
       ignore = true;
     };
   }, [dataSource, refreshKey]);
+
+  useEffect(() => {
+    if (!previewEmployee || creatingEmployee) {
+      setEmployeeHistory([]);
+      setHistoryError(null);
+      setHistoryLoading(false);
+      return;
+    }
+
+    let ignore = false;
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    getEmployeeHistory(previewEmployee.payCode || previewEmployee.employeeNumber)
+      .then((items) => {
+        if (!ignore) setEmployeeHistory(items);
+      })
+      .catch(() => {
+        if (!ignore) setHistoryError('Unable to load employee history.');
+      })
+      .finally(() => {
+        if (!ignore) setHistoryLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [creatingEmployee, previewEmployee, refreshKey]);
 
   useEffect(() => {
     let ignore = false;
@@ -1058,6 +1125,41 @@ export function EmployeesPage() {
                       <div><dt>Payable salary</dt><dd>{formatMoney(previewEmployee.payableSalary)}</dd></div>
                       <div><dt>Stagnation allowance</dt><dd>{formatMoney(previewEmployee.stagnationAllowance)}</dd></div>
                     </dl>
+                  </section>
+
+                  <section className="employee-preview-section employee-preview-section--history">
+                    <h3><History size={16} /> Increment and system history</h3>
+                    {historyLoading && <div className="employee-message">Loading employee history...</div>}
+                    {historyError && <div className="employee-message employee-message--error">{historyError}</div>}
+                    {!historyLoading && !historyError && employeeHistory.length === 0 && (
+                      <div className="employee-message">No history has been recorded for this employee yet.</div>
+                    )}
+                    {!historyLoading && !historyError && employeeHistory.length > 0 && (
+                      <ol className="employee-history-list">
+                        {employeeHistory.map((entry) => (
+                          <li key={entry.id}>
+                            <span className="employee-history-list__icon"><Clock3 size={14} /></span>
+                            <div>
+                              <strong>{getHistoryTitle(entry)}</strong>
+                              <p>{entry.description}</p>
+                              {entry.fieldName && (
+                                <small>{entry.fieldName}: {entry.previousValue || '-'} → {entry.newValue || '-'}</small>
+                              )}
+                              {(entry.previousSalaryPoint !== null || entry.newSalaryPoint !== null) && (
+                                <small>Step: {entry.previousSalaryPoint ?? '-'} → {entry.newSalaryPoint ?? '-'}</small>
+                              )}
+                              {(entry.previousSalary !== null || entry.newSalary !== null) && (
+                                <small>Salary: {formatOptionalMoney(entry.previousSalary)} → {formatOptionalMoney(entry.newSalary)}</small>
+                              )}
+                              {entry.incrementAmount !== null && (
+                                <small>Increment: {formatOptionalMoney(entry.incrementAmount)}</small>
+                              )}
+                              <em>{formatDateTime(entry.occurredAtUtc)} by {entry.actor}</em>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
                   </section>
                 </>
               )}

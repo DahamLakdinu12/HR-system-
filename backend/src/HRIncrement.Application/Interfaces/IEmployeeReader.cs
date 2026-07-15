@@ -23,10 +23,12 @@ public interface IEmployeeReader
     Task<EmployeeDto> UpdateHrStaffEmployeeAsync(
         string employeeNumber,
         UpdateHrStaffEmployeeRequest request,
+        string actor,
         CancellationToken cancellationToken);
 
     Task<EmployeeDto> CreateHrStaffEmployeeAsync(
         CreateHrStaffEmployeeRequest request,
+        string actor,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<DepartmentSummaryDto>> GetDepartmentsAsync(

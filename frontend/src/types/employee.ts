@@ -50,3 +50,26 @@ export type EmployeeSalaryStepOption = {
   basicSalary2027: number;
   incrementAmount: number;
 };
+
+export type EmployeeHistoryEntry = {
+  id: string;
+  employeeNumber: string;
+  payCode: string;
+  employeeName: string;
+  eventType: string;
+  description: string;
+  actor: string;
+  occurredAtUtc: string;
+  effectiveDate: string | null;
+  incrementDueDate: string | null;
+  fieldName: string | null;
+  previousValue: string | null;
+  newValue: string | null;
+  previousSalaryPoint: number | null;
+  newSalaryPoint: number | null;
+  previousSalary: number | null;
+  newSalary: number | null;
+  incrementAmount: number | null;
+  previousGrade: string | null;
+  newGrade: string | null;
+};

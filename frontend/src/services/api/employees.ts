@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { DepartmentSummary, Employee, EmployeeLookupOptions, EmployeeSearchResult } from '../../types/employee';
+import { DepartmentSummary, Employee, EmployeeHistoryEntry, EmployeeLookupOptions, EmployeeSearchResult } from '../../types/employee';
 
 type SearchEmployeesParams = {
   search?: string;
@@ -82,5 +82,12 @@ export async function updateEmployee(employeeNumber: string, request: UpdateEmpl
 
 export async function createEmployee(request: CreateEmployeeRequest) {
   const response = await apiClient.post<Employee>('/employees', request);
+  return response.data;
+}
+
+export async function getEmployeeHistory(payCode: string) {
+  const response = await apiClient.get<EmployeeHistoryEntry[]>(
+    `/employees/${encodeURIComponent(payCode)}/history`,
+  );
   return response.data;
 }

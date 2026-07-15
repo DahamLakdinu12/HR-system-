@@ -8,7 +8,9 @@ namespace HRIncrement.Api.Controllers;
 [ApiController]
 [Route("api/v1/employees")]
 [Authorize(Policy = "CanReadEmployees")]
-public sealed class EmployeesController(IEmployeeReader employeeReader) : ControllerBase
+public sealed class EmployeesController(
+    IEmployeeReader employeeReader,
+    IEmployeeHistoryService employeeHistoryService) : ControllerBase
 {
     private const string DataSourceHeader = "X-Employee-Data-Source";
 
@@ -55,6 +57,13 @@ public sealed class EmployeesController(IEmployeeReader employeeReader) : Contro
         return employee is null ? NotFound() : Ok(employee);
     }
 
+    [HttpGet("{payCode}/history")]
+    [ProducesResponseType<IReadOnlyList<EmployeeHistoryEntryDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<EmployeeHistoryEntryDto>>> GetHistory(
+        string payCode,
+        CancellationToken cancellationToken) =>
+        Ok(await employeeHistoryService.GetByPayCodeAsync(payCode, cancellationToken));
+
     [HttpPost]
     [Authorize(Policy = "CanProcessIncrements")]
     [ProducesResponseType<EmployeeDto>(StatusCodes.Status201Created)]
@@ -66,7 +75,10 @@ public sealed class EmployeesController(IEmployeeReader employeeReader) : Contro
     {
         try
         {
-            var employee = await employeeReader.CreateHrStaffEmployeeAsync(request, cancellationToken);
+            var employee = await employeeReader.CreateHrStaffEmployeeAsync(
+                request,
+                Actor(),
+                cancellationToken);
             return CreatedAtAction(
                 nameof(GetByEmployeeNumber),
                 new { employeeNumber = employee.EmployeeNumber, dataSource = ParseDataSource(dataSource) },
@@ -94,6 +106,7 @@ public sealed class EmployeesController(IEmployeeReader employeeReader) : Contro
             return Ok(await employeeReader.UpdateHrStaffEmployeeAsync(
                 employeeNumber,
                 request,
+                Actor(),
                 cancellationToken));
         }
         catch (KeyNotFoundException error)
@@ -118,4 +131,6 @@ public sealed class EmployeesController(IEmployeeReader employeeReader) : Contro
 
     private static EmployeeDataSource ParseDataSource(string? value) =>
         EmployeeDataSource.HrStaff;
+
+    private string Actor() => User.Identity?.Name ?? "system";
 }

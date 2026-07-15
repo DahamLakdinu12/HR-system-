@@ -48,6 +48,28 @@ public sealed record EmployeeSalaryStepOptionDto(
     decimal BasicSalary2027,
     decimal IncrementAmount);
 
+public sealed record EmployeeHistoryEntryDto(
+    Guid Id,
+    string EmployeeNumber,
+    string PayCode,
+    string EmployeeName,
+    string EventType,
+    string Description,
+    string Actor,
+    DateTimeOffset OccurredAtUtc,
+    DateOnly? EffectiveDate,
+    DateOnly? IncrementDueDate,
+    string? FieldName,
+    string? PreviousValue,
+    string? NewValue,
+    int? PreviousSalaryPoint,
+    int? NewSalaryPoint,
+    decimal? PreviousSalary,
+    decimal? NewSalary,
+    decimal? IncrementAmount,
+    string? PreviousGrade,
+    string? NewGrade);
+
 public sealed record UpdateHrStaffEmployeeRequest(
     string FullName,
     string Designation,

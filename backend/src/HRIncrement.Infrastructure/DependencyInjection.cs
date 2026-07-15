@@ -1,5 +1,6 @@
 using HRIncrement.Application.Interfaces;
 using HRIncrement.Infrastructure.Data;
+using HRIncrement.Infrastructure.Employees;
 using HRIncrement.Infrastructure.HcmIntegration;
 using HRIncrement.Infrastructure.PdfGeneration;
 using HRIncrement.Infrastructure.Reports;
@@ -25,6 +26,7 @@ public static class DependencyInjection
             options.UseSqlServer(hrStaffConnection, sql => sql.EnableRetryOnFailure()));
         services.AddSingleton<HttpClient>();
         services.AddScoped<IEmployeeReader, HrStaffEmployeeReader>();
+        services.AddScoped<IEmployeeHistoryService, EmployeeHistoryService>();
         services.AddScoped<IAssessmentLeaveParticularsProvider, HcmLeaveParticularsProvider>();
         services.AddScoped<IIncrementWorkflowService, IncrementWorkflowService>();
         services.AddScoped<ReportDataReader>();

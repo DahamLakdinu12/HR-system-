@@ -10,6 +10,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<SalaryScalePoint> SalaryScalePoints => Set<SalaryScalePoint>();
     public DbSet<EmployeeIncrement> EmployeeIncrements => Set<EmployeeIncrement>();
     public DbSet<WorkflowDecision> WorkflowDecisions => Set<WorkflowDecision>();
+    public DbSet<EmployeeHistoryEntry> EmployeeHistoryEntries => Set<EmployeeHistoryEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);

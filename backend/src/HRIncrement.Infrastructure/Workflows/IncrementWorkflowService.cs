@@ -10,6 +10,7 @@ namespace HRIncrement.Infrastructure.Workflows;
 internal sealed class IncrementWorkflowService(
     ApplicationDbContext applicationDbContext,
     IEmployeeReader employeeReader,
+    IEmployeeHistoryService historyService,
     TimeProvider timeProvider) : IIncrementWorkflowService
 {
     public async Task<IncrementWorkflowDto> MoveToAssessmentAsync(
@@ -75,7 +76,25 @@ internal sealed class IncrementWorkflowService(
         }
 
         workflow.MoveToAssessment();
-        workflow.MarkModified(actor, timeProvider.GetUtcNow());
+        var occurredAtUtc = timeProvider.GetUtcNow();
+        workflow.MarkModified(actor, occurredAtUtc);
+        historyService.Track(new EmployeeHistoryEntry(
+            workflow.EmployeeNumber,
+            workflow.PayCode,
+            workflow.EmployeeName,
+            workflow.DataSource,
+            "MovedToAssessment",
+            "Increment record was moved to assessment and is waiting for approval.",
+            actor,
+            occurredAtUtc)
+            .WithIncrement(
+                workflow.Id,
+                workflow.DueDate,
+                workflow.Calculation.SalaryPoint,
+                workflow.Calculation.SalaryPoint + 1,
+                workflow.Calculation.CurrentSalary,
+                workflow.Calculation.ConvertedSalary,
+                workflow.Calculation.IncrementAmount));
         await applicationDbContext.SaveChangesAsync(cancellationToken);
         return ToDto(workflow);
     }
@@ -201,6 +220,24 @@ internal sealed class IncrementWorkflowService(
             workflow.MarkModified(actor, decidedAtUtc);
             applicationDbContext.WorkflowDecisions.Add(
                 new WorkflowDecision(workflow.Id, true, actor, decidedAtUtc));
+            historyService.Track(new EmployeeHistoryEntry(
+                workflow.EmployeeNumber,
+                workflow.PayCode,
+                workflow.EmployeeName,
+                workflow.DataSource,
+                "ApprovedIncrement",
+                "Increment was approved and the employee salary step was advanced.",
+                actor,
+                decidedAtUtc)
+                .WithIncrement(
+                    workflow.Id,
+                    workflow.DueDate,
+                    workflow.Calculation.SalaryPoint,
+                    workflow.Calculation.SalaryPoint + 1,
+                    workflow.Calculation.CurrentSalary,
+                    workflow.Calculation.ConvertedSalary,
+                    workflow.Calculation.IncrementAmount)
+                .WithPromotionChange(workflow.Grade, workflow.Grade, workflow.DueDate));
             await applicationDbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return ToDto(workflow);
@@ -219,6 +256,23 @@ internal sealed class IncrementWorkflowService(
         workflow.MarkModified(actor, decidedAtUtc);
         applicationDbContext.WorkflowDecisions.Add(
             new WorkflowDecision(workflow.Id, false, actor, decidedAtUtc));
+        historyService.Track(new EmployeeHistoryEntry(
+            workflow.EmployeeNumber,
+            workflow.PayCode,
+            workflow.EmployeeName,
+            workflow.DataSource,
+            "RejectedAssessment",
+            "Increment assessment was declined and kept in the assessment stage.",
+            actor,
+            decidedAtUtc)
+            .WithIncrement(
+                workflow.Id,
+                workflow.DueDate,
+                workflow.Calculation.SalaryPoint,
+                workflow.Calculation.SalaryPoint,
+                workflow.Calculation.CurrentSalary,
+                workflow.Calculation.CurrentSalary,
+                workflow.Calculation.IncrementAmount));
         await applicationDbContext.SaveChangesAsync(cancellationToken);
         return ToDto(workflow);
     }
@@ -228,18 +282,45 @@ internal sealed class IncrementWorkflowService(
         Guid id,
         string actor,
         CancellationToken cancellationToken) =>
-        TransitionAsync(dataSource, id, actor, workflow => workflow.ReturnToIncrement(), cancellationToken);
+        TransitionAsync(
+            dataSource,
+            id,
+            actor,
+            workflow => workflow.ReturnToIncrement(),
+            "ReturnedToIncrement",
+            "Increment record was returned from assessment to the increment page.",
+            cancellationToken);
 
     private async Task<IncrementWorkflowDto> TransitionAsync(
         EmployeeDataSource dataSource,
         Guid id,
         string actor,
         Action<EmployeeIncrement> transition,
+        string eventType,
+        string description,
         CancellationToken cancellationToken)
     {
         var workflow = await FindAsync(dataSource, id, cancellationToken);
         transition(workflow);
-        workflow.MarkModified(actor, timeProvider.GetUtcNow());
+        var occurredAtUtc = timeProvider.GetUtcNow();
+        workflow.MarkModified(actor, occurredAtUtc);
+        historyService.Track(new EmployeeHistoryEntry(
+            workflow.EmployeeNumber,
+            workflow.PayCode,
+            workflow.EmployeeName,
+            workflow.DataSource,
+            eventType,
+            description,
+            actor,
+            occurredAtUtc)
+            .WithIncrement(
+                workflow.Id,
+                workflow.DueDate,
+                workflow.Calculation.SalaryPoint,
+                workflow.Calculation.SalaryPoint,
+                workflow.Calculation.CurrentSalary,
+                workflow.Calculation.CurrentSalary,
+                workflow.Calculation.IncrementAmount));
         await applicationDbContext.SaveChangesAsync(cancellationToken);
         return ToDto(workflow);
     }
