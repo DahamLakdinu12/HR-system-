@@ -1,4 +1,4 @@
-USE [HRIncrement];
+USE [HRStaff];
 GO
 
 IF OBJECT_ID(N'dbo.EmployeeHistoryEntries', N'U') IS NULL
@@ -8,7 +8,7 @@ BEGIN
 END;
 GO
 
-INSERT INTO dbo.EmployeeHistoryEntries
+INSERT INTO HRStaff.dbo.EmployeeHistoryEntries
 (
     Id,
     EmployeeNumber,
@@ -50,17 +50,17 @@ SELECT
     workflow.IncrementAmount,
     workflow.Grade,
     workflow.Grade
-FROM dbo.EmployeeIncrements workflow
+FROM HRIncrement.dbo.EmployeeIncrements workflow
 WHERE NOT EXISTS
 (
     SELECT 1
-    FROM dbo.EmployeeHistoryEntries history
+    FROM HRStaff.dbo.EmployeeHistoryEntries history
     WHERE history.EmployeeIncrementId = workflow.Id
       AND history.EventType = 'MovedToAssessment'
 );
 GO
 
-INSERT INTO dbo.EmployeeHistoryEntries
+INSERT INTO HRStaff.dbo.EmployeeHistoryEntries
 (
     Id,
     EmployeeNumber,
@@ -106,13 +106,13 @@ SELECT
     workflow.IncrementAmount,
     workflow.Grade,
     workflow.Grade
-FROM dbo.WorkflowDecisions decision
-JOIN dbo.EmployeeIncrements workflow
+FROM HRIncrement.dbo.WorkflowDecisions decision
+JOIN HRIncrement.dbo.EmployeeIncrements workflow
     ON workflow.Id = decision.EmployeeIncrementId
 WHERE NOT EXISTS
 (
     SELECT 1
-    FROM dbo.EmployeeHistoryEntries history
+    FROM HRStaff.dbo.EmployeeHistoryEntries history
     WHERE history.EmployeeIncrementId = workflow.Id
       AND history.EventType = CASE WHEN decision.Approved = 1 THEN 'ApprovedIncrement' ELSE 'RejectedAssessment' END
       AND history.OccurredAtUtc = decision.DecidedAtUtc

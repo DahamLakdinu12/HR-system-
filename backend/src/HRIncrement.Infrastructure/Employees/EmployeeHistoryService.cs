@@ -1,12 +1,12 @@
 using HRIncrement.Application.DTOs;
 using HRIncrement.Application.Interfaces;
 using HRIncrement.Domain.Entities;
-using HRIncrement.Infrastructure.Data;
+using HRIncrement.Infrastructure.HcmIntegration;
 using Microsoft.EntityFrameworkCore;
 
 namespace HRIncrement.Infrastructure.Employees;
 
-internal sealed class EmployeeHistoryService(ApplicationDbContext applicationDbContext)
+internal sealed class EmployeeHistoryService(HrStaffDbContext hrStaffDbContext)
     : IEmployeeHistoryService
 {
     public async Task<IReadOnlyList<EmployeeHistoryEntryDto>> GetByPayCodeAsync(
@@ -16,7 +16,7 @@ internal sealed class EmployeeHistoryService(ApplicationDbContext applicationDbC
         ArgumentException.ThrowIfNullOrWhiteSpace(payCode);
         var normalizedPayCode = payCode.Trim();
 
-        return await applicationDbContext.EmployeeHistoryEntries
+        return await hrStaffDbContext.EmployeeHistoryEntries
             .AsNoTracking()
             .Where(x => x.PayCode == normalizedPayCode || x.EmployeeNumber == normalizedPayCode)
             .OrderByDescending(x => x.OccurredAtUtc)
@@ -46,8 +46,8 @@ internal sealed class EmployeeHistoryService(ApplicationDbContext applicationDbC
     }
 
     public void Track(EmployeeHistoryEntry entry) =>
-        applicationDbContext.EmployeeHistoryEntries.Add(entry);
+        hrStaffDbContext.EmployeeHistoryEntries.Add(entry);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
-        applicationDbContext.SaveChangesAsync(cancellationToken);
+        hrStaffDbContext.SaveChangesAsync(cancellationToken);
 }

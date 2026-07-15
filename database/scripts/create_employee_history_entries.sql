@@ -1,4 +1,4 @@
-USE [HRIncrement];
+USE [HRStaff];
 GO
 
 IF OBJECT_ID(N'dbo.EmployeeHistoryEntries', N'U') IS NULL
